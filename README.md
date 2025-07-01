@@ -165,7 +165,7 @@ my_form2.add_record(record_5)
 
 ## Update a record which is a reference
 
-record_1 was `["LBN001", "Mount Lebanon"]`. We are Updating it to `["LBN003", El Nabatieh"]`.
+record_1 was `["LBN001", "Mount Lebanon"]`. We are updating it to `["LBN003", "El Nabatieh"]`.
 
 ```python
 my_form.update_record(record_1, ["LBN003", "El Nabatieh"])
