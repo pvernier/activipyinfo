@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 
 from .api_client import APIClient
+from .config import Config
 from .form import Form
 from .utils import create_unique_id
 
@@ -26,8 +27,8 @@ class Folder:
         self.id = create_unique_id() if id is None else id
         self.label = label
         self.parentId = parentId
-        self.type = "FOLDER"
-        self.visibility = "PRIVATE"
+        self.type = Config.RESOURCE_TYPE_FOLDER
+        self.visibility = Config.VISIBILITY_PRIVATE
         self.resourceDeletions: List = []
         self.lockUpdates: List = []
         self.lockDeletions: List = []

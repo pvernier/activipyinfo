@@ -2,6 +2,8 @@
 from typing import Any, Dict, Optional
 import requests
 
+from .config import Config
+
 
 class ActivityInfoAPIError(Exception):
     """Custom exception for ActivityInfo API errors."""
@@ -11,7 +13,7 @@ class ActivityInfoAPIError(Exception):
 class APIClient:
     """Centralized HTTP client for ActivityInfo API."""
     
-    def __init__(self, token: str, base_url: str = "https://www.activityinfo.org"):
+    def __init__(self, token: str, base_url: str = Config.DEFAULT_BASE_URL):
         """Initialize the API client.
         
         Args:

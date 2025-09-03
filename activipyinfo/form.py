@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional, Any
 
 from .api_client import APIClient
+from .config import Config
 from .field import Field
 from .record import Record
 from .utils import create_unique_id
@@ -43,8 +44,8 @@ class Form:
             "id": self.id,
             "parentId": self.parentId,
             "label": self.label,
-            "type": "FORM",
-            "visibility": "PRIVATE",
+            "type": Config.RESOURCE_TYPE_FORM,
+            "visibility": Config.VISIBILITY_PRIVATE,
         }
 
     def _build_field_element(self, field: Field) -> Dict[str, Any]:
@@ -85,7 +86,7 @@ class Form:
         
         return {
             "id": self.id,
-            "schemaVersion": 1,
+            "schemaVersion": Config.FORM_SCHEMA_VERSION,
             "databaseId": self.databaseId,
             "label": self.label,
             "elements": elements,
@@ -141,7 +142,7 @@ class Form:
             record: Record instance to process
         """
         for i, field in enumerate(record.fields):
-            if field.data["type"] == "reference":
+            if field.data["type"] == Config.FIELD_TYPE_REFERENCE:
                 ref_form = field.data["reference"]
                 existing_records = self.get_form_records(ref_form.id)
                 value_to_replace = record.values[i]

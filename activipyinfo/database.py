@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 
 from .api_client import APIClient
+from .config import Config
 from .folder import Folder
 from .form import Form
 
@@ -34,7 +35,7 @@ class Database:
         
         resources = response_data["resources"]
         for element in resources:
-            if element["type"] == "FOLDER":
+            if element["type"] == Config.RESOURCE_TYPE_FOLDER:
                 folder = Folder(
                     element["label"], 
                     element["id"], 
@@ -43,7 +44,7 @@ class Database:
                 )
                 folder.databaseId = self.id
                 self.resources["folders"].append(folder)
-            elif element["type"] == "FORM":
+            elif element["type"] == Config.RESOURCE_TYPE_FORM:
                 form = Form(
                     element["label"], 
                     None, 
@@ -63,7 +64,13 @@ class Database:
             
         Returns:
             Created Folder instance
+            
+        Raises:
+            ValueError: If name is empty or None
         """
+        if not name or not isinstance(name, str):
+            raise ValueError("Folder name must be a non-empty string")
+            
         folder = Folder(name, api_client=self.api_client)
         folder.databaseId = self.id
         folder.parentId = self.id

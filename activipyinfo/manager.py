@@ -12,7 +12,12 @@ class Manager:
         
         Args:
             token: ActivityInfo API authentication token
+            
+        Raises:
+            ValueError: If token is empty or None
         """
+        if not token or not isinstance(token, str):
+            raise ValueError("Token must be a non-empty string")
         self.api_client = APIClient(token)
 
     def get_dbs(self) -> List[Database]:
@@ -42,7 +47,13 @@ class Manager:
             
         Returns:
             Database object if found, None otherwise
+            
+        Raises:
+            ValueError: If db_id is empty or None
         """
+        if not db_id or not isinstance(db_id, str):
+            raise ValueError("Database ID must be a non-empty string")
+            
         databases = self.get_dbs()
         for db in databases:
             if db.id == db_id:
