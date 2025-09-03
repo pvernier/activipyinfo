@@ -1,36 +1,50 @@
-import requests
+from typing import List, Optional
 
-from .constant import Constant
+from .api_client import APIClient
 from .database import Database
 
 
 class Manager:
+    """Main manager class for ActivityInfo API interactions."""
+    
     def __init__(self, token: str) -> None:
-        Constant.token = token
-        Constant.headers = {
-            "Authorization": f"Bearer {token}",
-            "content-type": "application/json",
-        }
+        """Initialize the Manager with an API token.
+        
+        Args:
+            token: ActivityInfo API authentication token
+        """
+        self.api_client = APIClient(token)
 
-        self.token = token
-        self.headers = Constant.headers
-        self.base_url = Constant.base_url
+    def get_dbs(self) -> List[Database]:
+        """Get all databases accessible with the current token.
+        
+        Returns:
+            List of Database objects
+        """
+        response_data = self.api_client.get("/resources/databases")
+        
+        databases = []
+        for db_data in response_data:
+            db = Database(
+                db_data["databaseId"], 
+                db_data["label"], 
+                api_client=self.api_client
+            )
+            databases.append(db)
+        
+        return databases
 
-    def get_dbs(self) -> list:
-        """"""
-        dbs = []
-
-        url = f"{self.base_url}/resources/databases"
-        response = requests.get(url, headers=self.headers)
-
-        for r in response.json():
-            db = Database(r["databaseId"], r["label"])
-            dbs.append(db)
-
-        return dbs
-
-    def get_db(self, db_id: str) -> Database:
-        dbs = self.get_dbs()
-        for db in dbs:
+    def get_db(self, db_id: str) -> Optional[Database]:
+        """Get a specific database by ID.
+        
+        Args:
+            db_id: Database identifier
+            
+        Returns:
+            Database object if found, None otherwise
+        """
+        databases = self.get_dbs()
+        for db in databases:
             if db.id == db_id:
                 return db
+        return None

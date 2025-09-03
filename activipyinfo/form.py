@@ -1,247 +1,222 @@
-import requests
+from typing import Dict, List, Optional, Any
 
-from .constant import Constant
+from .api_client import APIClient
 from .field import Field
 from .record import Record
 from .utils import create_unique_id
 
 
 class Form:
+    """Represents a form in an ActivityInfo database."""
+    
     def __init__(
-        self, label, fields: list = None, id: str = None, parentId: str = None
+        self, 
+        label: str, 
+        fields: Optional[List[Field]] = None, 
+        id: Optional[str] = None, 
+        parentId: Optional[str] = None,
+        api_client: Optional[APIClient] = None
     ) -> None:
+        """Initialize a Form instance.
+        
+        Args:
+            label: Form display name
+            fields: List of Field objects
+            id: Form identifier (generated if not provided)
+            parentId: Parent folder identifier
+            api_client: API client for making requests
+        """
         self.id = create_unique_id() if id is None else id
         self.label = label
         self.fields = fields if fields is not None else []
-        self.records = None
+        self.records: Optional[List] = None
         self.parentId = parentId
-        self.token = Constant.token
-        self.headers = Constant.headers
-        self.base_url = Constant.base_url
-        self.databaseId = None
+        self.api_client = api_client
+        self.databaseId: Optional[str] = None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Form({self.id}, {self.label}, {self.parentId})"
 
-    def build_payload(self):
-        payload = {
-            "formResource": {
-                "id": self.id,
-                "parentId": self.parentId,
-                "label": self.label,
-                "type": "FORM",
-                "visibility": "PRIVATE",
-            },
-            "formClass": {
-                "id": self.id,
-                "schemaVersion": 1,
-                "databaseId": self.databaseId,
-                "label": self.label,
-                "elements": [],
-            },
+    def _build_form_resource(self) -> Dict[str, Any]:
+        """Build the form resource part of the payload."""
+        return {
+            "id": self.id,
+            "parentId": self.parentId,
+            "label": self.label,
+            "type": "FORM",
+            "visibility": "PRIVATE",
         }
 
-        props_to_add = {
+    def _build_field_element(self, field: Field) -> Dict[str, Any]:
+        """Build a single field element for the form schema.
+        
+        Args:
+            field: Field instance to convert
+            
+        Returns:
+            Dictionary representing the field element
+        """
+        element = field.data.copy()
+        element["id"] = field.id
+        element.update({
             "relevanceCondition": "",
             "validationCondition": "",
+        })
+
+        # Handle reference fields
+        if "reference" in element:
+            element["typeParameters"] = {
+                "cardinality": "single",
+                "range": [{"formId": element["reference"].id}],
+            }
+            element.pop("reference")
+        else:
+            element["typeParameters"] = {"barcode": False}
+
+        # Remove key field if it's False
+        if element.get("key") is False:
+            element.pop("key")
+
+        return element
+
+    def _build_form_class(self) -> Dict[str, Any]:
+        """Build the form class part of the payload."""
+        elements = [self._build_field_element(field) for field in self.fields]
+        
+        return {
+            "id": self.id,
+            "schemaVersion": 1,
+            "databaseId": self.databaseId,
+            "label": self.label,
+            "elements": elements,
         }
-        # This can maybe be moved to the Field class
-        for field in self.fields:
-            new_field = field.data.copy()
-            new_field["id"] = field.id
-            new_field.update(props_to_add)
 
-            if "reference" in new_field:
-                new_field["typeParameters"] = {
-                    "cardinality": "single",
-                    "range": [{"formId": new_field["reference"].id}],
-                }
-                new_field.pop("reference")
-            else:
-                new_field["typeParameters"] = {"barcode": False}
+    def build_payload(self) -> Dict[str, Any]:
+        """Build the complete API payload for form creation.
+        
+        Returns:
+            Dictionary containing the form creation payload
+        """
+        return {
+            "formResource": self._build_form_resource(),
+            "formClass": self._build_form_class(),
+        }
 
-            if new_field["key"] is False:
-                new_field.pop("key")
-
-            payload["formClass"]["elements"].append(new_field)
-
-        # FORM'S TEMPLATE
-        # payload = {
-        #     "formResource": {
-        #         "id": uid1,
-        #         "parentId": "qi350omk6tb6m3ry",
-        #         "label": "Admin1",
-        #         "type": "FORM",
-        #         "visibility": "PRIVATE",
-        #     },
-        #     "formClass": {
-        #         "id": uid1,
-        #         "schemaVersion": 1,
-        #         "databaseId": "cwfldm4lf9nc9n12",
-        #         "label": "Admin1",
-        #         "elements": [
-        #             {
-        #                 "id": uid2,
-        #                 "code": "pcode",
-        #                 "label": "P-code",
-        #                 "description": "P-code of the admin1",
-        #                 "relevanceCondition": "",
-        #                 "validationCondition": "",
-        #                 "required": True,
-        #                 "type": "FREE_TEXT",
-        #                 "key": True,
-        #                 "typeParameters": {"barcode": False},
-        #             },
-        #             {
-        #                 "id": uid3,
-        #                 "code": "name",
-        #                 "label": "Name",
-        #                 "description": "Name of the admin1",
-        #                 "relevanceCondition": "",
-        #                 "validationCondition": "",
-        #                 "required": True,
-        #                 "type": "FREE_TEXT",
-        #                 "typeParameters": {"barcode": False},
-        #             },
-        #         ],
-        #     },
-        # }
-        return payload
-
-    def get_fields(self) -> list:
-        """Get the fields of the form in a list of Field objects"""
-
-        r = requests.get(
-            f"{self.base_url}/resources/form/{self.id}/schema",
-            headers=self.headers,
-        )
-
-        elements = r.json()["elements"]
+    def get_fields(self) -> List[Field]:
+        """Get the fields of the form in a list of Field objects.
+        
+        Returns:
+            List of Field objects representing the form schema
+        """
+        if not self.api_client:
+            return []
+            
+        response_data = self.api_client.get(f"/resources/form/{self.id}/schema")
+        
+        elements = response_data["elements"]
         for element in elements:
             field = Field(element, element["id"])
             self.fields.append(field)
 
         return self.fields
 
-    def get_form_records(self, id) -> list:
-        """Get the records of any form, not only for the instance
-        This should maybe be moved somewhere else (utils?)"""
-        r = requests.get(
-            f"{self.base_url}/resources/form/{id}/query",
-            headers=self.headers,
-        )
-        return r.json()
+    def get_form_records(self, form_id: str) -> Dict[str, Any]:
+        """Get the records of any form.
+        
+        Args:
+            form_id: Form identifier to get records for
+            
+        Returns:
+            Dictionary containing form records
+        """
+        if not self.api_client:
+            return {}
+            
+        return self.api_client.get(f"/resources/form/{form_id}/query")
 
-    def add_record(self, record: Record) -> None:
-        # Before adding the record, we need to replace the values of the reference fields.
-        # We need to replace the value with the id of the record in the reference form
-        # which contains this values
-
-        # XXX: There is no check or error handling here - TODO
-        for i, f in enumerate(record.fields):
-            if f.data["type"] == "reference":
-                ref_form = f.data["reference"]
-
-                # Get the records of the reference form
-                # we need to do that here because we might have multiple reference fields
+    def _process_reference_fields(self, record: Record) -> None:
+        """Process reference fields in a record before adding it.
+        
+        Args:
+            record: Record instance to process
+        """
+        for i, field in enumerate(record.fields):
+            if field.data["type"] == "reference":
+                ref_form = field.data["reference"]
                 existing_records = self.get_form_records(ref_form.id)
-
                 value_to_replace = record.values[i]
 
-                # Replace the value with with the id of the reference record
-                for er in existing_records:
-                    # XXX: checking the name might not be robust enough. Can we know if a field is a key?
-                    if value_to_replace in er.values():
-                        record.values[i] = er["@id"]
+                # Replace the value with the ID of the reference record
+                for existing_record in existing_records:
+                    if value_to_replace in existing_record.values():
+                        record.values[i] = existing_record["@id"]
+                        break
 
-        payload = {"changes": []}
+    def _build_record_payload(self, record: Record, deleted: bool = False) -> Dict[str, Any]:
+        """Build the API payload for record operations.
+        
+        Args:
+            record: Record instance
+            deleted: Whether this is a delete operation
+            
+        Returns:
+            Dictionary containing the record operation payload
+        """
+        fields_dict = {}
+        if not deleted:
+            for i, value in enumerate(record.values):
+                fields_dict[record.fields[i].id] = value
 
-        d = {}
-        for i, v in enumerate(record.values):
-            d[record.fields[i].id] = v
-
-        record = {
+        record_data = {
             "formId": self.id,
             "recordId": record.id,
             "parentRecordId": None,
-            "deleted": False,
-            "fields": d,
+            "deleted": deleted,
+            "fields": fields_dict if not deleted else None,
         }
-        payload["changes"].append(record)
 
-        # RECORD'S TEMPLATE
-        # payload = {
-        #     "changes": [
-        #         {
-        #             "formId": "owwdl7bdye5ft99n",
-        #             "recordId": uid5,
-        #             "parentRecordId": None,
-        #             "deleted": False,
-        #             # "iz04yv98s6hjoj0i" is the uid of the field "pcode"
-        #             # "cwrf280blfjw4x4j" is the uid of the field "name"
-        #             "fields": {"iz04yv98s6hjoj0i": "DEFs123456", "cwrf280blfjw4x4j": "Tata"},
-        #         }
-        #     ]
-        # }
+        return {"changes": [record_data]}
 
-        requests.post(
-            f"{self.base_url}/resources/update",
-            headers=self.headers,
-            json=payload,
-        )
+    def add_record(self, record: Record) -> None:
+        """Add a record to the form.
+        
+        Args:
+            record: Record instance to add
+        """
+        if not self.api_client:
+            return
+            
+        # Process reference fields before adding
+        self._process_reference_fields(record)
+        
+        payload = self._build_record_payload(record)
+        self.api_client.post("/resources/update", payload)
 
-    # XXX: This does not work
-    def update_record(self, record: Record, new_value: list) -> None:
-        payload = {"changes": []}
-
-        d = {}
-        for i, v in enumerate(record.values):
-            d[record.fields[i].id] = new_value[i]
-
-        record = {
-            "formId": self.id,
-            "recordId": record.id,
-            "parentRecordId": None,
-            "deleted": False,
-            "fields": d,
-        }
-        payload["changes"].append(record)
-
-        # RECORD'S TEMPLATE
-        # payload = {
-        #     "changes": [
-        #         {
-        #             "formId": "owwdl7bdye5ft99n",
-        #             "recordId": uid5,
-        #             "parentRecordId": None,
-        #             "deleted": False,
-        #             # "iz04yv98s6hjoj0i" is the uid of the field "pcode"
-        #             # "cwrf280blfjw4x4j" is the uid of the field "name"
-        #             "fields": {"iz04yv98s6hjoj0i": "DEFs123456", "cwrf280blfjw4x4j": "Tata"},
-        #         }
-        #     ]
-        # }
-
-        requests.post(
-            f"{self.base_url}/resources/update",
-            headers=self.headers,
-            json=payload,
-        )
+    def update_record(self, record: Record, new_values: List[Any]) -> None:
+        """Update an existing record with new values.
+        
+        Args:
+            record: Record instance to update
+            new_values: List of new values for the record
+        """
+        if not self.api_client:
+            return
+            
+        # Create a copy of the record with new values
+        updated_record = Record(record.fields, new_values)
+        updated_record.id = record.id  # Keep the same ID
+        
+        payload = self._build_record_payload(updated_record)
+        self.api_client.post("/resources/update", payload)
 
     def delete_record(self, record: Record) -> None:
-        payload = {"changes": []}
-
-        record = {
-            "formId": self.id,
-            "recordId": record.id,
-            "parentRecordId": None,
-            "deleted": True,
-            "fields": None,
-        }
-        payload["changes"].append(record)
-
-        requests.post(
-            f"{self.base_url}/resources/update",
-            headers=self.headers,
-            json=payload,
-        )
+        """Delete a record from the form.
+        
+        Args:
+            record: Record instance to delete
+        """
+        if not self.api_client:
+            return
+            
+        payload = self._build_record_payload(record, deleted=True)
+        self.api_client.post("/resources/update", payload)
