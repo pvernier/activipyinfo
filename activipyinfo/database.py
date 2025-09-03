@@ -1,57 +1,81 @@
-import requests
+from typing import Dict, List, Optional
 
-from .constant import Constant
+from .api_client import APIClient
+from .config import Config
 from .folder import Folder
 from .form import Form
 
 
 class Database:
-    def __init__(self, id, label) -> None:
+    """Represents an ActivityInfo database."""
+    
+    def __init__(self, id: str, label: str, api_client: APIClient) -> None:
+        """Initialize a Database instance.
+        
+        Args:
+            id: Database identifier
+            label: Database display name
+            api_client: API client for making requests
+        """
         self.id = id
         self.label = label
-        self.token = Constant.token
-        self.headers = Constant.headers
-        self.base_url = Constant.base_url
-        self.resources = {"folders": [], "forms": []}
-        # TODO: add other attributes maybe in a metdata dict
+        self.api_client = api_client
+        self.resources: Dict[str, List] = {"folders": [], "forms": []}
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Database('{self.id}')"
 
-    def get_resources(self):
-        """Get the resources of the database."""
-
-        r = requests.get(
-            f"{self.base_url}/resources/databases/{self.id}",
-            headers=self.headers,
-        )
-
-        _res = r.json()["resources"]
-        for element in _res:
-            if element["type"] == "FOLDER":
-                folder = Folder(element["label"], element["id"], element["parentId"])
+    def get_resources(self) -> Dict[str, List]:
+        """Get the resources of the database.
+        
+        Returns:
+            Dictionary containing folders and forms lists
+        """
+        response_data = self.api_client.get(f"/resources/databases/{self.id}")
+        
+        resources = response_data["resources"]
+        for element in resources:
+            if element["type"] == Config.RESOURCE_TYPE_FOLDER:
+                folder = Folder(
+                    element["label"], 
+                    element["id"], 
+                    element["parentId"],
+                    api_client=self.api_client
+                )
                 folder.databaseId = self.id
                 self.resources["folders"].append(folder)
-            elif element["type"] == "FORM":
-                form = Form(element["label"], None, element["id"], element["parentId"])
+            elif element["type"] == Config.RESOURCE_TYPE_FORM:
+                form = Form(
+                    element["label"], 
+                    None, 
+                    element["id"], 
+                    element["parentId"],
+                    api_client=self.api_client
+                )
                 form.databaseId = self.id
                 self.resources["forms"].append(form)
         return self.resources
 
     def create_folder(self, name: str) -> Folder:
-        """Create a folder in the database."""
+        """Create a folder in the database.
+        
+        Args:
+            name: Name for the new folder
+            
+        Returns:
+            Created Folder instance
+            
+        Raises:
+            ValueError: If name is empty or None
+        """
+        if not name or not isinstance(name, str):
+            raise ValueError("Folder name must be a non-empty string")
+            
+        folder = Folder(name, api_client=self.api_client)
+        folder.databaseId = self.id
+        folder.parentId = self.id
+        payload = folder.build_payload()
 
-        f = Folder(name)
-        f.databaseId = self.id
-        f.parentId = self.id
-        payload = f.build_payload()
-
-        r = requests.post(
-            f"{self.base_url}/resources/databases/{self.id}",
-            headers=self.headers,
-            json=payload,
-        )
-        # print(r.status_code)
-        # print(r.json())
-
-        return f
+        self.api_client.post(f"/resources/databases/{self.id}", payload)
+        
+        return folder

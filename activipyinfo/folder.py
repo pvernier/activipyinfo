@@ -1,98 +1,90 @@
-import requests
+from typing import Dict, List, Optional
 
-from .constant import Constant
+from .api_client import APIClient
+from .config import Config
 from .form import Form
 from .utils import create_unique_id
 
-# It seems that it's not possible to create folder within a folder using the API (it's possible from the web app) - to check
-
 
 class Folder:
-    def __init__(self, label: str, id: str = None, parentId: str = None) -> None:
+    """Represents a folder in an ActivityInfo database."""
+    
+    def __init__(
+        self, 
+        label: str, 
+        id: Optional[str] = None, 
+        parentId: Optional[str] = None,
+        api_client: Optional[APIClient] = None
+    ) -> None:
+        """Initialize a Folder instance.
+        
+        Args:
+            label: Folder display name
+            id: Folder identifier (generated if not provided)
+            parentId: Parent folder/database identifier
+            api_client: API client for making requests
+        """
         self.id = create_unique_id() if id is None else id
         self.label = label
         self.parentId = parentId
-        self.type = "FOLDER"
-        self.visibility = "PRIVATE"
-        self.resourceDeletions = []
-        self.lockUpdates = []
-        self.lockDeletions = []
-        self.roleUpdates = []
-        self.roleDeletions = []
-        self.languageUpdates = []
-        self.languageDeletions = []
-        self.originalLanguage = None
-        self.continuousTranslation = None
-        self.translationFromDbMemory = None
-        self.thirdPartyTranslation = None
-        self.publishedTemplate = None
-        self.token = Constant.token
-        self.headers = Constant.headers
-        self.base_url = Constant.base_url
-        self.databaseId = None
+        self.type = Config.RESOURCE_TYPE_FOLDER
+        self.visibility = Config.VISIBILITY_PRIVATE
+        self.resourceDeletions: List = []
+        self.lockUpdates: List = []
+        self.lockDeletions: List = []
+        self.roleUpdates: List = []
+        self.roleDeletions: List = []
+        self.languageUpdates: List = []
+        self.languageDeletions: List = []
+        self.originalLanguage: Optional[str] = None
+        self.continuousTranslation: Optional[bool] = None
+        self.translationFromDbMemory: Optional[bool] = None
+        self.thirdPartyTranslation: Optional[bool] = None
+        self.publishedTemplate: Optional[str] = None
+        self.api_client = api_client
+        self.databaseId: Optional[str] = None
 
-    def build_payload(self) -> dict:
-        """"""
-
-        ressource_updates = ["id", "parentId", "label", "type", "visibility"]
-        attr_to_exclude = ["token", "headers", "base_url", "databaseId"]
+    def build_payload(self) -> Dict:
+        """Build the API payload for folder creation.
+        
+        Returns:
+            Dictionary containing the folder creation payload
+        """
+        resource_updates = ["id", "parentId", "label", "type", "visibility"]
+        attr_to_exclude = ["api_client", "databaseId"]
 
         payload = {
             "resourceUpdates": [{}],
         }
 
         for attr in self.__dict__:
-            if attr in ressource_updates and attr not in attr_to_exclude:
+            if attr in resource_updates and attr not in attr_to_exclude:
                 payload["resourceUpdates"][0][attr] = self.__dict__[attr]
             elif attr not in attr_to_exclude:
                 payload[attr] = self.__dict__[attr]
 
-        # FOLDER'S TEMPLATE
-
-        # payload = {
-        #     "resourceUpdates": [
-        #         {
-        #             "id": uid,
-        #             "parentId": self.id,
-        #             "label": f"{name}",
-        #             "type": "FOLDER",
-        #             "visibility": "PRIVATE",
-        #         }
-        #     ],
-        #     "resourceDeletions": [],
-        #     "lockUpdates": [],
-        #     "lockDeletions": [],
-        #     "roleUpdates": [],
-        #     "roleDeletions": [],
-        #     "languageUpdates": [],
-        #     "languageDeletions": [],
-        #     "originalLanguage": None,
-        #     "continuousTranslation": None,
-        #     "translationFromDbMemory": None,
-        #     "thirdPartyTranslation": None,
-        #     "publishedTemplate": None,
-        # }
         return payload
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Folder({self.id}, {self.label}, {self.parentId})"
 
-    def create_form(self, label: str, fields: dict) -> Form:
-        """Create a form in the folder."""
+    def create_form(self, label: str, fields: List) -> Form:
+        """Create a form in the folder.
+        
+        Args:
+            label: Form display name
+            fields: List of Field objects for the form
+            
+        Returns:
+            Created Form instance
+        """
+        form = Form(label, fields, api_client=self.api_client)
+        form.databaseId = self.databaseId
+        form.parentId = self.id
 
-        f = Form(label, fields)
-        f.databaseId = self.databaseId
-        f.parentId = self.id
-        # print(f.fields)
+        payload = form.build_payload()
 
-        payload = f.build_payload()
+        if self.api_client and self.databaseId:
+            self.api_client.post(f"/resources/databases/{self.databaseId}/forms", payload)
 
-        r = requests.post(
-            f"{self.base_url}/resources/databases/{self.databaseId}/forms",
-            headers=self.headers,
-            json=payload,
-        )
-        # print(r.status_code)
-        # print(r.json())
-
-        return f
+        return form
