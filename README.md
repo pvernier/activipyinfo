@@ -22,9 +22,9 @@ For a self-managed server, pass `base_url=...` or set `ACTIVITYINFO_BASE_URL`.
 ```python
 from activipyinfo import Client
 
-client = Client()                   # reads ACTIVITYINFO_TOKEN
-client = Client("XXXX")             # or pass the token
-client.get("databases")             # low-level call to GET /resources/databases
+client = Client()  # reads ACTIVITYINFO_TOKEN
+client = Client("XXXX")  # or pass the token
+client.get("databases")  # low-level call to GET /resources/databases
 ```
 
 API errors raise subclasses of `activipyinfo.APIError` (`AuthenticationError`,
@@ -45,11 +45,11 @@ print(me.name, me.email, me.billing_account_id)
 for db in client.databases.list():
     print(db.id, db.label)
 
-db = client.databases.get("ck8oykh8m5")        # by id, with its full tree
+db = client.databases.get("ck8oykh8m5")  # by id, with its full tree
 db = client.databases.find("Lebanon response")  # by exact label
 
 new_db = client.databases.create("Lebanon response", description="2026 plan")
-new_db.delete()                                 # only the owner can delete
+new_db.delete()  # only the owner can delete
 
 db.billing_account().plan_name
 ```
@@ -67,15 +67,15 @@ print(db.tree())
 # │   └── Admin2 [form c5d6...]
 # └── Registration [form c7e8...]
 
-db.folders, db.forms, db.children                # lists of Folder / Form
-admin = db.folder("Admin boundaries")            # by label or id
-form = db.form("Admin1")                         # raises MultipleMatchesError
-form = db.find("Admin1", parent=admin)           #   if the label is not unique
+db.folders, db.forms, db.children  # lists of Folder / Form
+admin = db.folder("Admin boundaries")  # by label or id
+form = db.form("Admin1")  # raises MultipleMatchesError
+form = db.find("Admin1", parent=admin)  #   if the label is not unique
 
-folder = db.add_folder("Lebanon")                # at the database root
-archive = folder.add_folder("Archive")           # nested folder
+folder = db.add_folder("Lebanon")  # at the database root
+archive = folder.add_folder("Archive")  # nested folder
 archive.rename("Old data")
-archive.move(db)                                 # back to the root
+archive.move(db)  # back to the root
 archive.delete()
 ```
 
