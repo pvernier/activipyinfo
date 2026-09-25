@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from .models.account import UserAccount
     from .services.billing import BillingService
     from .services.databases import DatabasesService
+    from .services.forms import FormsService
     from .services.users import UsersService
 
 __all__ = ["Client", "DEFAULT_BASE_URL", "TOKEN_ENV_VAR", "BASE_URL_ENV_VAR"]
@@ -122,6 +123,13 @@ class Client:
         from .services.databases import DatabasesService
 
         return DatabasesService(self)
+
+    @cached_property
+    def forms(self) -> FormsService:
+        """Read and change form schemas (see also ``db.add_form`` and ``Form``)."""
+        from .services.forms import FormsService
+
+        return FormsService(self)
 
     @cached_property
     def users(self) -> UsersService:

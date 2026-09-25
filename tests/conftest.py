@@ -26,3 +26,9 @@ def load_fixture(name: str):
 def tree_data():
     """A fresh copy of the sample database tree (safe to mutate)."""
     return copy.deepcopy(load_fixture("database_tree.json"))
+
+
+@pytest.fixture
+def all_types_schema_data():
+    """A form schema using every field type, in the format the library emits."""
+    return load_fixture("form_schema_all_types.json")
