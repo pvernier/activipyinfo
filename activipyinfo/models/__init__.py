@@ -58,6 +58,7 @@ from .permissions import (
     resource_permissions,
 )
 from .record import QueryResult, Record, RecordHistoryEntry
+from .table import Table
 from .user import DatabaseUser
 
 __all__ = [
@@ -108,6 +109,7 @@ __all__ = [
     "SingleSelectField",
     "SubForm",
     "SubformField",
+    "Table",
     "TextField",
     "UnknownField",
     "UserAccount",

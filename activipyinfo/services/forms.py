@@ -39,6 +39,17 @@ class FormsService:
         """Fetch the current schema of a form."""
         return FormSchema.from_api(self._client.get(f"form/{form_id}/schema"))
 
+    def tree(self, form_id: str) -> dict[str, FormSchema]:
+        """The schemas of a form and of the forms it relates to, by form id.
+
+        Includes its subforms and the forms its reference fields point to.
+        """
+        data = self._client.get(f"form/{form_id}/tree")
+        forms = data.get("forms") or {}
+        entries = forms.values() if isinstance(forms, dict) else forms
+        schemas = [FormSchema.from_api(e.get("schema", e)) for e in entries]
+        return {schema.id: schema for schema in schemas}
+
     def schema_version(self, form_id: str, version: int) -> FormSchema:
         """Fetch an earlier version of a form's schema."""
         return FormSchema.from_api(

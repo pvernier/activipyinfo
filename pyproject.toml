@@ -18,9 +18,16 @@ classifiers = [
 [project.urls]
 Repository = "https://github.com/pvernier/activipyinfo"
 
+[project.optional-dependencies]
+pandas = [
+    "pandas>=2.2",
+]
+
 [dependency-groups]
 dev = [
     "mypy>=1.15",
+    "pandas>=2.2",
+    "pandas-stubs>=2.2",
     "pytest>=9.0.2",
     "responses>=0.25",
     "ruff>=0.11",

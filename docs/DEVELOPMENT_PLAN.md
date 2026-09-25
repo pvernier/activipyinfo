@@ -303,6 +303,25 @@ Endpoints: `POST /resources/update` (at most 200 changes), `GET /form/{id}/recor
 5. A `client.records.batch()` context manager that queues changes across forms and submits them on exit. This is the equivalent of R `submitPending`.
 
 ### Phase 5: Queries and data frames
+
+> **Status: done** on branch `phase-5-queries`.
+> - `form.table()` returns an immutable `Table` (`select`, `where`,
+>   `filter`, `sort`, `offset`, `limit`; then `collect`, `first`, `count`,
+>   `to_pandas` or iteration), built on `client.queries`.
+> - Default columns follow the R package's pretty columns: field labels, and
+>   reference fields replaced by the referenced form's key fields
+>   (`<reference id>.<key id>`, found through `GET /form/{id}/tree`), plus
+>   `_parent` (`@parent`) for subforms. Only one level of references is
+>   expanded.
+> - pandas is an optional extra (`activipyinfo[pandas]`), imported only when
+>   needed. `FormSchema.from_data()` (R `createFormSchemaFromData`),
+>   `records.add_many(df)` (NaN leaves a field empty), `schema.to_pandas()`
+>   and `db.users.to_pandas()`.
+> - `tests/integration/test_tables_live.py` checks the tree endpoint, dotted
+>   reference formulas, `@parent`, sorting, windows and the DataFrame round
+>   trip.
+> - Deferred: a formula helper (R `toActivityInfoFormula`), pivot queries
+>   (`POST /query/pivot`) and `/query/rows`.
 Endpoints: `POST /query/columns` (formId, columns[{id, formula}], filter, sort, filterSets), `POST /query/rows`, `GET /form/{id}/query`, pivot.
 1. `client.queries.columns(form_id, columns, filter=None, sort=None)` turns the columnar response into a list of dicts.
 2. `form.table()` returns a lazy `Table` modelled on R `getRecords() |> filter() |> select() |> collect()`:

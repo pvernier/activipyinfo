@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from datetime import date, datetime
+from numbers import Integral, Real
 from typing import Any
 
 from .fields import (
@@ -75,9 +76,10 @@ def encode_value(field: FormField, value: Any) -> Any:
             )
         return _expect_str(field, value)
     if isinstance(field, QuantityField):
-        if isinstance(value, bool) or not isinstance(value, int | float):
+        if _is_bool(value) or not isinstance(value, Real):
             raise TypeError(f"{field!r} expects a number, got {value!r}")
-        return value
+        # Plain int/float: numpy numbers are not JSON serializable.
+        return int(value) if isinstance(value, Integral) else float(value)
     if isinstance(field, SingleSelectField):
         return _option_id(field, value)
     if isinstance(field, MultiSelectField):
@@ -140,9 +142,19 @@ def _encode_date(field: FormField, value: Any) -> str:
     return text
 
 
+def _is_bool(value: Any) -> bool:
+    # numpy booleans: numpy.bool_ (numpy 1) or numpy.bool (numpy 2)
+    kind = type(value)
+    return isinstance(value, bool) or (
+        kind.__module__ == "numpy" and kind.__name__ in ("bool_", "bool")
+    )
+
+
 def _option_id(field: _SelectField, value: Any) -> str:
     if isinstance(value, SelectOption):
         value = value.id
+    elif _is_bool(value):
+        value = str(bool(value))  # e.g. options "True"/"False" from from_data()
     try:
         return field.option(value).id
     except KeyError:

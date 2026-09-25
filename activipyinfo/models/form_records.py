@@ -6,6 +6,7 @@ from collections.abc import Iterable, Mapping
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
+from .._pandas import is_missing
 from ..ids import cuid
 from ._common import one
 from .fields import FormField, _SelectField
@@ -66,6 +67,8 @@ class FormRecords:
                 form_field = schema.field(key)
             except LookupError:
                 raise KeyError(f"{self._form!r} has no field {key!r}") from None
+            if is_missing(value):
+                value = None
             encoded[form_field.id] = encode_value(form_field, value)
         return encoded
 
@@ -197,21 +200,25 @@ class FormRecords:
 
     def add_many(
         self,
-        rows: Iterable[Mapping[str, Any]],
+        rows: Iterable[Mapping[str, Any]] | Any,
         *,
         parent: Record | str | None = None,
         batch_size: int = 200,
     ) -> builtins.list[str]:
         """Add many records, in batches; returns their ids.
 
-        Each row is a ``{field: value}`` dict. The special key ``"_id"`` sets
-        the record id, and ``"_parent"`` the parent record (subforms), which
-        otherwise defaults to ``parent``.
+        Each row is a ``{field: value}`` dict, or ``rows`` is a
+        :class:`pandas.DataFrame` whose columns are fields (missing values
+        leave the field empty). The special key ``"_id"`` sets the record id,
+        and ``"_parent"`` the parent record (subforms), which otherwise
+        defaults to ``parent``.
 
         Raises:
             RecordBatchError: a batch failed; ``error.submitted`` lists the
                 records that were added before it.
         """
+
+        rows = _rows(rows)
 
         def changes() -> Iterable[dict[str, Any]]:
             for row in rows:
@@ -240,9 +247,11 @@ class FormRecords:
         return self.get(record_id)
 
     def update_many(
-        self, rows: Iterable[Mapping[str, Any]], *, batch_size: int = 200
+        self, rows: Iterable[Mapping[str, Any]] | Any, *, batch_size: int = 200
     ) -> builtins.list[str]:
-        """Update many records, in batches. Each row needs an ``"_id"`` key."""
+        """Update many records, in batches. Each row (dict or DataFrame row)
+        needs an ``"_id"`` key."""
+        rows = _rows(rows)
 
         def changes() -> Iterable[dict[str, Any]]:
             for row in rows:
@@ -273,6 +282,15 @@ class FormRecords:
         record_id = _record_id(record)
         self._records.recover(self._form.id, record_id)
         return self.get(record_id)
+
+
+def _rows(rows: Any) -> Iterable[Mapping[str, Any]]:
+    """Rows from dicts or from a pandas DataFrame."""
+    if hasattr(rows, "to_dict") and hasattr(rows, "columns"):
+        records: builtins.list[Mapping[str, Any]] = rows.to_dict("records")
+        return records
+    iterable: Iterable[Mapping[str, Any]] = rows
+    return iterable
 
 
 def _record_id(record: Record | str) -> str:

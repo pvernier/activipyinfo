@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import KW_ONLY, dataclass, field
 from typing import Any
 
@@ -158,6 +158,42 @@ class FormSchema:
             }
             for f in self.fields
         ]
+
+    @classmethod
+    def from_data(
+        cls,
+        data: Any,
+        label: str,
+        *,
+        keys: Sequence[str] = (),
+        required: Sequence[str] | None = None,
+        codes: bool = True,
+        bool_labels: tuple[str, str] = ("True", "False"),
+    ) -> FormSchema:
+        """Guess a schema from a DataFrame or a list of dicts, one field per
+        column. See :func:`activipyinfo.models.infer.schema_from_data`.
+
+        Example:
+            >>> schema = FormSchema.from_data(df, "Households", keys=["Head"])
+            >>> form = folder.add_form(schema)
+            >>> form.records.add_many(df)
+        """
+        from .infer import schema_from_data
+
+        return schema_from_data(
+            data,
+            label,
+            keys=keys,
+            required=required,
+            codes=codes,
+            bool_labels=bool_labels,
+        )
+
+    def to_pandas(self) -> Any:
+        """:meth:`describe` as a :class:`pandas.DataFrame` (needs pandas)."""
+        from .._pandas import require_pandas
+
+        return require_pandas().DataFrame(self.describe())
 
     def to_api(self) -> dict[str, Any]:
         data: dict[str, Any] = {"id": self.id, "label": self.label}
