@@ -283,8 +283,11 @@ Endpoints: `POST /databases/{id}/forms`, `GET` and `POST /form/{id}/schema`, sch
 >   `/query/columns` in the R package's format (`rowSources`,
 >   `columns[{id, expression}]`, `window`). `client.queries` is the start of
 >   Phase 5.
-> - `tests/integration/test_records_live.py` checks the value formats, filters
->   on text and select labels, subform records and batches of 200.
+> - Verified live (2026-09-25): the server accepts these value formats and
+>   returns them as sent; filters on text and select labels, clearing a
+>   field with `None`, subform records (`parentRecordId`), record history,
+>   delete/recover and a 205-record insert in two batches all work
+>   (`tests/integration/test_records_live.py`).
 > - Deferred: a `client.records.batch()` context manager queueing changes
 >   across forms (R `submitPending`).
 Endpoints: `POST /resources/update` (at most 200 changes), `GET /form/{id}/record/{rid}`, record history, recover a deleted record.
