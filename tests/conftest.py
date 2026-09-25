@@ -1,7 +1,11 @@
-import sys
-from pathlib import Path
+import pytest
+
+from activipyinfo import Client
 
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+@pytest.fixture
+def client() -> Client:
+    """A client whose retries do not sleep."""
+    c = Client("test-token", backoff_factor=0)
+    c._sleep = lambda seconds: None
+    return c

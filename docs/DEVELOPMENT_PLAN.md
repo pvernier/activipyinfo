@@ -132,6 +132,14 @@ db.users.add("jane@example.org", "Jane", role=role, resources=[folder])
 Each phase ends with unit tests (mocked HTTP using `responses` and JSON fixtures copied from real API responses) plus a few **integration tests**. The integration tests are marked `@pytest.mark.integration` and run against a throwaway database using a token from an environment variable. They are skipped by default.
 
 ### Phase 0: Foundations (do this first; it unblocks everything else)
+
+> **Status: done** on branch `phase-0-foundations`. Decisions made along the way:
+> - The flat package layout is kept; moving to `src/` isn't worth the churn yet.
+> - `Manager` is kept as a subclass of `Client` with its legacy helpers. It
+>   gets deprecated in Phase 1, once `client.databases` replaces it.
+> - Retries: a 429 is retried for every method. A 502/503/504 or a dropped
+>   connection is retried only for idempotent methods (GET/PUT/DELETE), so a
+>   POST such as starting a job is never sent twice.
 1. Commit the current work in progress (`http.py` and `tests/`) so you have a baseline.
 2. Packaging: fix the version to one source, move `pytest` into a `[dependency-groups] dev` group, add `ruff` and `mypy`, and consider a `src/` layout. Add a `py.typed` marker.
 3. `Client`:

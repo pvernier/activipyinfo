@@ -1,30 +1,38 @@
-from .constant import Constant
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+from ._base import ClientBound
 from .field import Field
-from .http import request
+from .ids import cuid
 from .record import Record
-from .utils import create_unique_id
+
+if TYPE_CHECKING:
+    from .client import Client
 
 
-class Form:
+class Form(ClientBound):
     def __init__(
-        self, label, fields: list = None, id: str = None, parentId: str = None
+        self,
+        label: str,
+        fields: list | None = None,
+        id: str | None = None,
+        parentId: str | None = None,
+        client: Client | None = None,
     ) -> None:
-        self.id = create_unique_id() if id is None else id
+        self.id = cuid() if id is None else id
         self.label = label
         self.fields = fields if fields is not None else []
         self.records = None
         self.parentId = parentId
-        self.token = Constant.token
-        self.headers = Constant.headers
-        self.base_url = Constant.base_url
-        self.timeout = Constant.timeout
-        self.databaseId = None
+        self.databaseId: str | None = None
+        self._client = client
 
     def __repr__(self):
         return f"Form({self.id}, {self.label}, {self.parentId})"
 
-    def build_payload(self):
-        payload = {
+    def build_payload(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {
             "formResource": {
                 "id": self.id,
                 "parentId": self.parentId,
@@ -111,15 +119,10 @@ class Form:
     def get_fields(self) -> list:
         """Get the fields of the form in a list of Field objects"""
 
-        r = request(
-            "GET",
-            f"{self.base_url}/resources/form/{self.id}/schema",
-            headers=self.headers,
-            timeout=self.timeout,
-        )
+        schema = self.client.get(f"form/{self.id}/schema")
 
         self.fields = []
-        elements = r.json()["elements"]
+        elements = schema["elements"]
         for element in elements:
             field = Field(element, element["id"])
             self.fields.append(field)
@@ -129,16 +132,11 @@ class Form:
     def get_form_records(self, id) -> list:
         """Get the records of any form, not only for the instance
         This should maybe be moved somewhere else (utils?)"""
-        r = request(
-            "GET",
-            f"{self.base_url}/resources/form/{id}/query",
-            headers=self.headers,
-            timeout=self.timeout,
-        )
-        return r.json()
+        return self.client.get(f"form/{id}/query")
 
     def add_record(self, record: Record) -> None:
-        # Before adding the record, we need to replace the values of the reference fields.
+        # Before adding the record, we need to replace the values of the reference
+        # fields.
         # We need to replace the value with the id of the record in the reference form
         # which contains this values
 
@@ -148,31 +146,33 @@ class Form:
                 ref_form = f.data["reference"]
 
                 # Get the records of the reference form
-                # we need to do that here because we might have multiple reference fields
+                # we need to do that here because we might have multiple reference
+                # fields
                 existing_records = self.get_form_records(ref_form.id)
 
                 value_to_replace = record.values[i]
 
                 # Replace the value with with the id of the reference record
                 for er in existing_records:
-                    # XXX: checking the name might not be robust enough. Can we know if a field is a key?
+                    # XXX: checking the name might not be robust enough.
+                    # Can we know if a field is a key?
                     if value_to_replace in er.values():
                         record.values[i] = er["@id"]
 
-        payload = {"changes": []}
+        payload: dict[str, list] = {"changes": []}
 
         d = {}
         for i, v in enumerate(record.values):
             d[record.fields[i].id] = v
 
-        record = {
+        change = {
             "formId": self.id,
             "recordId": record.id,
             "parentRecordId": None,
             "deleted": False,
             "fields": d,
         }
-        payload["changes"].append(record)
+        payload["changes"].append(change)
 
         # RECORD'S TEMPLATE
         # payload = {
@@ -184,35 +184,32 @@ class Form:
         #             "deleted": False,
         #             # "iz04yv98s6hjoj0i" is the uid of the field "pcode"
         #             # "cwrf280blfjw4x4j" is the uid of the field "name"
-        #             "fields": {"iz04yv98s6hjoj0i": "DEFs123456", "cwrf280blfjw4x4j": "Tata"},
+        #             "fields": {
+        #                 "iz04yv98s6hjoj0i": "DEFs123456",
+        #                 "cwrf280blfjw4x4j": "Tata",
+        #             },
         #         }
         #     ]
         # }
 
-        request(
-            "POST",
-            f"{self.base_url}/resources/update",
-            headers=self.headers,
-            timeout=self.timeout,
-            json=payload,
-        )
+        self.client.post("update", payload)
 
     # XXX: This does not work
     def update_record(self, record: Record, new_value: list) -> None:
-        payload = {"changes": []}
+        payload: dict[str, list] = {"changes": []}
 
         d = {}
         for i, v in enumerate(record.values):
             d[record.fields[i].id] = new_value[i]
 
-        record = {
+        change = {
             "formId": self.id,
             "recordId": record.id,
             "parentRecordId": None,
             "deleted": False,
             "fields": d,
         }
-        payload["changes"].append(record)
+        payload["changes"].append(change)
 
         # RECORD'S TEMPLATE
         # payload = {
@@ -224,35 +221,26 @@ class Form:
         #             "deleted": False,
         #             # "iz04yv98s6hjoj0i" is the uid of the field "pcode"
         #             # "cwrf280blfjw4x4j" is the uid of the field "name"
-        #             "fields": {"iz04yv98s6hjoj0i": "DEFs123456", "cwrf280blfjw4x4j": "Tata"},
+        #             "fields": {
+        #                 "iz04yv98s6hjoj0i": "DEFs123456",
+        #                 "cwrf280blfjw4x4j": "Tata",
+        #             },
         #         }
         #     ]
         # }
 
-        request(
-            "POST",
-            f"{self.base_url}/resources/update",
-            headers=self.headers,
-            timeout=self.timeout,
-            json=payload,
-        )
+        self.client.post("update", payload)
 
     def delete_record(self, record: Record) -> None:
-        payload = {"changes": []}
+        payload: dict[str, list] = {"changes": []}
 
-        record = {
+        change = {
             "formId": self.id,
             "recordId": record.id,
             "parentRecordId": None,
             "deleted": True,
             "fields": None,
         }
-        payload["changes"].append(record)
+        payload["changes"].append(change)
 
-        request(
-            "POST",
-            f"{self.base_url}/resources/update",
-            headers=self.headers,
-            timeout=self.timeout,
-            json=payload,
-        )
+        self.client.post("update", payload)

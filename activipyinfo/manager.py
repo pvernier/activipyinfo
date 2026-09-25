@@ -1,41 +1,20 @@
-from .constant import Constant
+from .client import Client
 from .database import Database
-from .http import request
 
 
-class Manager:
-    def __init__(self, token: str) -> None:
-        Constant.token = token
-        Constant.headers = {
-            "Authorization": f"Bearer {token}",
-            "content-type": "application/json",
-        }
+class Manager(Client):
+    """Legacy entry point, kept until ``client.databases`` replaces it."""
 
-        self.token = token
-        self.headers = Constant.headers
-        self.base_url = Constant.base_url
-        self.timeout = Constant.timeout
+    def get_dbs(self) -> list[Database]:
+        """List the databases the user has access to."""
+        return [
+            Database(r["databaseId"], r["label"], client=self)
+            for r in self.get("databases")
+        ]
 
-    def get_dbs(self) -> list:
-        """"""
-        dbs = []
-
-        url = f"{self.base_url}/resources/databases"
-        response = request(
-            "GET",
-            url,
-            headers=self.headers,
-            timeout=self.timeout,
-        )
-
-        for r in response.json():
-            db = Database(r["databaseId"], r["label"])
-            dbs.append(db)
-
-        return dbs
-
-    def get_db(self, db_id: str) -> Database:
-        dbs = self.get_dbs()
-        for db in dbs:
+    def get_db(self, db_id: str) -> Database | None:
+        """Return the database with the given id, or None if not found."""
+        for db in self.get_dbs():
             if db.id == db_id:
                 return db
+        return None

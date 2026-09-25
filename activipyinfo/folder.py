@@ -1,102 +1,81 @@
-from .constant import Constant
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from ._base import ClientBound
 from .form import Form
-from .http import request
-from .utils import create_unique_id
+from .ids import cuid
 
-# It seems that it's not possible to create folder within a folder using the API (it's possible from the web app) - to check
+if TYPE_CHECKING:
+    from .client import Client
+
+# It seems that it's not possible to create folder within a folder using the API
+# (it's possible from the web app) - to check
 
 
-class Folder:
-    def __init__(self, label: str, id: str = None, parentId: str = None) -> None:
-        self.id = create_unique_id() if id is None else id
+def database_update_payload(
+    resource_updates: list[dict] | None = None,
+    resource_deletions: list[str] | None = None,
+) -> dict:
+    """Build the body of ``POST /resources/databases/{id}``."""
+    return {
+        "resourceUpdates": resource_updates or [],
+        "resourceDeletions": resource_deletions or [],
+        "lockUpdates": [],
+        "lockDeletions": [],
+        "roleUpdates": [],
+        "roleDeletions": [],
+        "languageUpdates": [],
+        "languageDeletions": [],
+        "originalLanguage": None,
+        "continuousTranslation": None,
+        "translationFromDbMemory": None,
+        "thirdPartyTranslation": None,
+        "publishedTemplate": None,
+    }
+
+
+class Folder(ClientBound):
+    def __init__(
+        self,
+        label: str,
+        id: str | None = None,
+        parentId: str | None = None,
+        client: Client | None = None,
+    ) -> None:
+        self.id = cuid() if id is None else id
         self.label = label
         self.parentId = parentId
         self.type = "FOLDER"
         self.visibility = "PRIVATE"
-        self.resourceDeletions = []
-        self.lockUpdates = []
-        self.lockDeletions = []
-        self.roleUpdates = []
-        self.roleDeletions = []
-        self.languageUpdates = []
-        self.languageDeletions = []
-        self.originalLanguage = None
-        self.continuousTranslation = None
-        self.translationFromDbMemory = None
-        self.thirdPartyTranslation = None
-        self.publishedTemplate = None
-        self.token = Constant.token
-        self.headers = Constant.headers
-        self.base_url = Constant.base_url
-        self.timeout = Constant.timeout
-        self.databaseId = None
+        self.databaseId: str | None = None
+        self._client = client
 
     def build_payload(self) -> dict:
-        """"""
-
-        ressource_updates = ["id", "parentId", "label", "type", "visibility"]
-        attr_to_exclude = ["token", "headers", "base_url", "databaseId"]
-
-        payload = {
-            "resourceUpdates": [{}],
-        }
-
-        for attr in self.__dict__:
-            if attr in ressource_updates and attr not in attr_to_exclude:
-                payload["resourceUpdates"][0][attr] = self.__dict__[attr]
-            elif attr not in attr_to_exclude:
-                payload[attr] = self.__dict__[attr]
-
-        # FOLDER'S TEMPLATE
-
-        # payload = {
-        #     "resourceUpdates": [
-        #         {
-        #             "id": uid,
-        #             "parentId": self.id,
-        #             "label": f"{name}",
-        #             "type": "FOLDER",
-        #             "visibility": "PRIVATE",
-        #         }
-        #     ],
-        #     "resourceDeletions": [],
-        #     "lockUpdates": [],
-        #     "lockDeletions": [],
-        #     "roleUpdates": [],
-        #     "roleDeletions": [],
-        #     "languageUpdates": [],
-        #     "languageDeletions": [],
-        #     "originalLanguage": None,
-        #     "continuousTranslation": None,
-        #     "translationFromDbMemory": None,
-        #     "thirdPartyTranslation": None,
-        #     "publishedTemplate": None,
-        # }
-        return payload
+        """Build the database update payload that creates this folder."""
+        return database_update_payload(
+            resource_updates=[
+                {
+                    "id": self.id,
+                    "parentId": self.parentId,
+                    "label": self.label,
+                    "type": self.type,
+                    "visibility": self.visibility,
+                }
+            ]
+        )
 
     def __repr__(self):
         return f"Folder({self.id}, {self.label}, {self.parentId})"
 
-    def create_form(self, label: str, fields: dict) -> Form:
+    def create_form(self, label: str, fields: list) -> Form:
         """Create a form in the folder."""
 
-        f = Form(label, fields)
+        f = Form(label, fields, client=self._client)
         f.databaseId = self.databaseId
         f.parentId = self.id
-        # print(f.fields)
 
-        payload = f.build_payload()
-
-        request(
-            "POST",
-            f"{self.base_url}/resources/databases/{self.databaseId}/forms",
-            headers=self.headers,
-            timeout=self.timeout,
-            json=payload,
-        )
-        # print(r.status_code)
-        # print(r.json())
-
+        self.client.post(f"databases/{self.databaseId}/forms", f.build_payload())
         return f
 
     def delete_form(self, form: Form | str) -> None:
@@ -105,26 +84,7 @@ class Folder:
             raise ValueError("databaseId must be set before deleting a form.")
 
         form_id = form.id if isinstance(form, Form) else form
-        payload = {
-            "resourceUpdates": [],
-            "resourceDeletions": [form_id],
-            "lockUpdates": [],
-            "lockDeletions": [],
-            "roleUpdates": [],
-            "roleDeletions": [],
-            "languageUpdates": [],
-            "languageDeletions": [],
-            "originalLanguage": None,
-            "continuousTranslation": None,
-            "translationFromDbMemory": None,
-            "thirdPartyTranslation": None,
-            "publishedTemplate": None,
-        }
-
-        request(
-            "POST",
-            f"{self.base_url}/resources/databases/{self.databaseId}",
-            headers=self.headers,
-            timeout=self.timeout,
-            json=payload,
+        self.client.post(
+            f"databases/{self.databaseId}",
+            database_update_payload(resource_deletions=[form_id]),
         )

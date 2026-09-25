@@ -15,9 +15,9 @@ def test_folder_build_payload_contains_resource_update_and_attributes():
     assert payload["resourceUpdates"][0]["label"] == "Admin"
     assert payload["resourceUpdates"][0]["type"] == "FOLDER"
     assert payload["resourceUpdates"][0]["visibility"] == "PRIVATE"
-    assert "token" not in payload
-    assert "headers" not in payload
-    assert "base_url" not in payload
+    assert payload["resourceDeletions"] == []
+    assert "_client" not in payload
+    assert "databaseId" not in payload
 
 
 def test_form_build_payload_for_regular_and_reference_fields():
@@ -46,7 +46,12 @@ def test_form_build_payload_for_regular_and_reference_fields():
         id="field_ref",
     )
 
-    form = Form("Admin2", fields=[regular_field, reference_field], id="form_2", parentId="folder_1")
+    form = Form(
+        "Admin2",
+        fields=[regular_field, reference_field],
+        id="form_2",
+        parentId="folder_1",
+    )
     form.databaseId = "db_1"
 
     payload = form.build_payload()

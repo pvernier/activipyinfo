@@ -1,9 +1,9 @@
-from .utils import create_unique_id
+from .ids import cuid
 
 
 class Record:
     def __init__(self, fields, values) -> None:
-        self.id = create_unique_id()
+        self.id = cuid()
         self.fields = fields
         self.values = values
 
