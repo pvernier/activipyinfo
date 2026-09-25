@@ -4,6 +4,7 @@ import pytest
 import responses
 
 from activipyinfo import (
+    BadRequestError,
     FormSchema,
     QuantityField,
     SubForm,
@@ -267,50 +268,94 @@ def test_renaming_through_schema_refreshes_database(db, mocked, tree_data):
     assert db.resource("fma1").label == "Governorates"
 
 
-def test_add_subform_links_it_from_the_parent(db, mocked, tree_data):
-    mocked.post(f"{API}/databases/db1/forms", json={})
-    mocked.get(
-        f"{API}/form/cmembers/schema",
-        json=schema_data("cmembers", "Members", elements=[], parentFormId="fma1"),
+def subform_tree(tree_data, subform_id="cm"):
+    return with_resource(
+        tree_data, id=subform_id, parentId="fma1", label="Members", type="SUB_FORM"
     )
+
+
+def test_add_subform_links_parent_first(db, mocked, tree_data):
+    # The server requires the parent's subform field before the subform.
     mocked.get(f"{API}/form/fma1/schema", json=schema_data())
     mocked.post(f"{API}/form/fma1/schema", json=schema_data())
-    mocked.get(
-        f"{API}/databases/db1",
-        json=with_resource(
-            tree_data, id="cmembers", parentId="fma1", label="Members", type="SUB_FORM"
-        ),
+    mocked.post(
+        f"{API}/form/cm/schema",
+        json=schema_data("cm", "Members", elements=[], parentFormId="fma1"),
     )
+    mocked.get(f"{API}/databases/db1", json=subform_tree(tree_data))
 
     subform = db.form("fma1").add_subform(
-        FormSchema("Members", [TextField("Name")], id="cmembers")
+        FormSchema("Members", [TextField("Name")], id="cm")
     )
 
-    created = sent_json(mocked, 0)
-    assert created["formResource"]["parentId"] == "fma1"
-    assert created["formClass"]["parentFormId"] == "fma1"
-    parent_update = sent_json(mocked, 3)
-    subform_field = parent_update["elements"][-1]
-    assert subform_field["type"] == "subform"
-    assert subform_field["typeParameters"] == {"formId": "cmembers"}
+    calls = [(c.request.method, c.request.url) for c in mocked.calls]
+    assert calls == [
+        ("GET", f"{API}/form/fma1/schema"),
+        ("POST", f"{API}/form/fma1/schema"),
+        ("POST", f"{API}/form/cm/schema"),
+        ("GET", f"{API}/databases/db1"),
+    ]
+    link = sent_json(mocked, 1)["elements"][-1]
+    assert link["type"] == "subform"
+    assert link["label"] == "Members"
+    assert link["typeParameters"] == {"formId": "cm"}
+    saved = sent_json(mocked, 2)
+    assert saved["parentFormId"] == "fma1"
+    assert saved["databaseId"] == "db1"
     assert isinstance(subform, SubForm)
 
 
-def test_add_subform_does_not_duplicate_server_link(db, mocked, tree_data):
-    mocked.post(f"{API}/databases/db1/forms", json=schema_data("cm", "Members"))
+def test_add_subform_creates_it_if_the_server_did_not(db, mocked, tree_data):
+    mocked.get(f"{API}/form/fma1/schema", json=schema_data())
+    mocked.post(f"{API}/form/fma1/schema", json=schema_data())
+    mocked.post(f"{API}/form/cm/schema", status=404, json={"code": "FORM_NOT_FOUND"})
+    mocked.post(
+        f"{API}/databases/db1/forms",
+        json=schema_data("cm", "Members", elements=[], parentFormId="fma1"),
+    )
+    mocked.get(f"{API}/databases/db1", json=subform_tree(tree_data))
+
+    db.form("fma1").add_subform(FormSchema("Members", id="cm"))
+
+    created = sent_json(mocked, 3)
+    assert created["formResource"]["parentId"] == "fma1"
+    assert created["formClass"]["parentFormId"] == "fma1"
+
+
+def test_add_subform_removes_the_link_if_it_fails(db, mocked):
+    parent = schema_data()
+    mocked.get(f"{API}/form/fma1/schema", json=parent)
+    mocked.post(f"{API}/form/fma1/schema", json=parent)
+    mocked.post(
+        f"{API}/form/cm/schema",
+        status=400,
+        json={"code": "INVALID_SCHEMA", "message": "Bad subform"},
+    )
+    linked = schema_data(
+        elements=[
+            *parent["elements"],
+            SubformField("Members", "cm", id="flink").to_api(),
+        ]
+    )
+    mocked.get(f"{API}/form/fma1/schema", json=linked)
+    mocked.post(f"{API}/form/fma1/schema", json=parent)
+
+    with pytest.raises(BadRequestError, match="Bad subform"):
+        db.form("fma1").add_subform(FormSchema("Members", id="cm"))
+
+    rollback = sent_json(mocked)
+    assert [e["id"] for e in rollback["elements"]] == ["fpcode"]
+
+
+def test_add_subform_reuses_an_existing_link(db, mocked, tree_data):
     linked = schema_data(elements=[SubformField("Members", "cm", id="fsub").to_api()])
     mocked.get(f"{API}/form/fma1/schema", json=linked)
-    mocked.get(
-        f"{API}/databases/db1",
-        json=with_resource(
-            tree_data, id="cm", parentId="fma1", label="Members", type="SUB_FORM"
-        ),
-    )
+    mocked.post(f"{API}/form/cm/schema", json=schema_data("cm", "Members"))
+    mocked.get(f"{API}/databases/db1", json=subform_tree(tree_data))
 
     db.form("fma1").add_subform(FormSchema("Members", [TextField("Name")], id="cm"))
 
-    methods = [c.request.method for c in mocked.calls]
-    assert methods == ["POST", "GET", "GET"]
+    assert [c.request.method for c in mocked.calls] == ["GET", "POST", "GET"]
 
 
 def test_relocate_refreshes_database(db, mocked, tree_data):

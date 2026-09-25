@@ -19,7 +19,6 @@ def test_folder_lifecycle(sandbox):
     assert isinstance(root, Folder)
     assert db.refresh().folder(root.id).label == root.label
 
-    # Open question in the plan: can folders be nested through the API?
     a = root.add_folder("A")
     b = root.add_folder("B")
     assert db.refresh().resource(a.id).parent_id == root.id

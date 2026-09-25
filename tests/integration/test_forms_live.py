@@ -61,7 +61,7 @@ def test_form_lifecycle(sandbox):
     with pytest.raises(NoMatchError):
         households.schema().field("phone")
 
-    # Open question: does the server link a new subform from its parent?
+    # The server needs the parent's subform field before the subform itself.
     members = households.add_subform("Members", [TextField("Name", code="name")])
     assert isinstance(members, SubForm)
     links = [
