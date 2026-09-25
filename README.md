@@ -22,9 +22,9 @@ For a self-managed server, pass `base_url=...` or set `ACTIVITYINFO_BASE_URL`.
 ```python
 from activipyinfo import Client
 
-client = Client()                   # reads ACTIVITYINFO_TOKEN
-client = Client("XXXX")             # or pass the token
-client.get("databases")             # low-level call to GET /resources/databases
+client = Client()  # reads ACTIVITYINFO_TOKEN
+client = Client("XXXX")  # or pass the token
+client.get("databases")  # low-level call to GET /resources/databases
 ```
 
 API errors raise subclasses of `activipyinfo.APIError` (`AuthenticationError`,
