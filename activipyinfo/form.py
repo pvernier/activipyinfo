@@ -199,7 +199,7 @@ class Form(ClientBound):
         payload: dict[str, list] = {"changes": []}
 
         d = {}
-        for i, v in enumerate(record.values):
+        for i in range(len(record.values)):
             d[record.fields[i].id] = new_value[i]
 
         change = {
