@@ -1,7 +1,6 @@
-import requests
-
 from .constant import Constant
 from .database import Database
+from .http import request
 
 
 class Manager:
@@ -15,13 +14,19 @@ class Manager:
         self.token = token
         self.headers = Constant.headers
         self.base_url = Constant.base_url
+        self.timeout = Constant.timeout
 
     def get_dbs(self) -> list:
         """"""
         dbs = []
 
         url = f"{self.base_url}/resources/databases"
-        response = requests.get(url, headers=self.headers)
+        response = request(
+            "GET",
+            url,
+            headers=self.headers,
+            timeout=self.timeout,
+        )
 
         for r in response.json():
             db = Database(r["databaseId"], r["label"])

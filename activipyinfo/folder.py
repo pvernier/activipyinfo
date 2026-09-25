@@ -1,7 +1,6 @@
-import requests
-
 from .constant import Constant
 from .form import Form
+from .http import request
 from .utils import create_unique_id
 
 # It seems that it's not possible to create folder within a folder using the API (it's possible from the web app) - to check
@@ -29,6 +28,7 @@ class Folder:
         self.token = Constant.token
         self.headers = Constant.headers
         self.base_url = Constant.base_url
+        self.timeout = Constant.timeout
         self.databaseId = None
 
     def build_payload(self) -> dict:
@@ -87,12 +87,44 @@ class Folder:
 
         payload = f.build_payload()
 
-        r = requests.post(
+        request(
+            "POST",
             f"{self.base_url}/resources/databases/{self.databaseId}/forms",
             headers=self.headers,
+            timeout=self.timeout,
             json=payload,
         )
         # print(r.status_code)
         # print(r.json())
 
         return f
+
+    def delete_form(self, form: Form | str) -> None:
+        """Delete a form from the database."""
+        if self.databaseId is None:
+            raise ValueError("databaseId must be set before deleting a form.")
+
+        form_id = form.id if isinstance(form, Form) else form
+        payload = {
+            "resourceUpdates": [],
+            "resourceDeletions": [form_id],
+            "lockUpdates": [],
+            "lockDeletions": [],
+            "roleUpdates": [],
+            "roleDeletions": [],
+            "languageUpdates": [],
+            "languageDeletions": [],
+            "originalLanguage": None,
+            "continuousTranslation": None,
+            "translationFromDbMemory": None,
+            "thirdPartyTranslation": None,
+            "publishedTemplate": None,
+        }
+
+        request(
+            "POST",
+            f"{self.base_url}/resources/databases/{self.databaseId}",
+            headers=self.headers,
+            timeout=self.timeout,
+            json=payload,
+        )

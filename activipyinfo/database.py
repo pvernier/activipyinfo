@@ -1,8 +1,7 @@
-import requests
-
 from .constant import Constant
 from .folder import Folder
 from .form import Form
+from .http import request
 
 
 class Database:
@@ -12,6 +11,7 @@ class Database:
         self.token = Constant.token
         self.headers = Constant.headers
         self.base_url = Constant.base_url
+        self.timeout = Constant.timeout
         self.resources = {"folders": [], "forms": []}
         # TODO: add other attributes maybe in a metdata dict
 
@@ -21,11 +21,14 @@ class Database:
     def get_resources(self):
         """Get the resources of the database."""
 
-        r = requests.get(
+        r = request(
+            "GET",
             f"{self.base_url}/resources/databases/{self.id}",
             headers=self.headers,
+            timeout=self.timeout,
         )
 
+        self.resources = {"folders": [], "forms": []}
         _res = r.json()["resources"]
         for element in _res:
             if element["type"] == "FOLDER":
@@ -46,9 +49,11 @@ class Database:
         f.parentId = self.id
         payload = f.build_payload()
 
-        r = requests.post(
+        request(
+            "POST",
             f"{self.base_url}/resources/databases/{self.id}",
             headers=self.headers,
+            timeout=self.timeout,
             json=payload,
         )
         # print(r.status_code)

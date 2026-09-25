@@ -1,7 +1,6 @@
-import requests
-
 from .constant import Constant
 from .field import Field
+from .http import request
 from .record import Record
 from .utils import create_unique_id
 
@@ -18,6 +17,7 @@ class Form:
         self.token = Constant.token
         self.headers = Constant.headers
         self.base_url = Constant.base_url
+        self.timeout = Constant.timeout
         self.databaseId = None
 
     def __repr__(self):
@@ -111,11 +111,14 @@ class Form:
     def get_fields(self) -> list:
         """Get the fields of the form in a list of Field objects"""
 
-        r = requests.get(
+        r = request(
+            "GET",
             f"{self.base_url}/resources/form/{self.id}/schema",
             headers=self.headers,
+            timeout=self.timeout,
         )
 
+        self.fields = []
         elements = r.json()["elements"]
         for element in elements:
             field = Field(element, element["id"])
@@ -126,9 +129,11 @@ class Form:
     def get_form_records(self, id) -> list:
         """Get the records of any form, not only for the instance
         This should maybe be moved somewhere else (utils?)"""
-        r = requests.get(
+        r = request(
+            "GET",
             f"{self.base_url}/resources/form/{id}/query",
             headers=self.headers,
+            timeout=self.timeout,
         )
         return r.json()
 
@@ -184,9 +189,11 @@ class Form:
         #     ]
         # }
 
-        requests.post(
+        request(
+            "POST",
             f"{self.base_url}/resources/update",
             headers=self.headers,
+            timeout=self.timeout,
             json=payload,
         )
 
@@ -222,9 +229,11 @@ class Form:
         #     ]
         # }
 
-        requests.post(
+        request(
+            "POST",
             f"{self.base_url}/resources/update",
             headers=self.headers,
+            timeout=self.timeout,
             json=payload,
         )
 
@@ -240,8 +249,10 @@ class Form:
         }
         payload["changes"].append(record)
 
-        requests.post(
+        request(
+            "POST",
             f"{self.base_url}/resources/update",
             headers=self.headers,
+            timeout=self.timeout,
             json=payload,
         )
