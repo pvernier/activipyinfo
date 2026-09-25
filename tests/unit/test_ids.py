@@ -2,9 +2,9 @@ import string
 
 import pytest
 
-from activipyinfo.field import Field
 from activipyinfo.ids import cuid, is_cuid
-from activipyinfo.record import Record
+from activipyinfo.legacy.field import Field
+from activipyinfo.legacy.record import Record
 
 ALPHANUMERIC = string.ascii_lowercase + string.digits
 

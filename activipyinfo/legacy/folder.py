@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ..ids import cuid
 from ._base import ClientBound
 from .form import Form
-from .ids import cuid
 
 if TYPE_CHECKING:
-    from .client import Client
+    from ..client import Client
 
 # It seems that it's not possible to create folder within a folder using the API
 # (it's possible from the web app) - to check

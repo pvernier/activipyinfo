@@ -1,6 +1,6 @@
-from activipyinfo.field import Field
-from activipyinfo.folder import Folder
-from activipyinfo.form import Form
+from activipyinfo.legacy.field import Field
+from activipyinfo.legacy.folder import Folder
+from activipyinfo.legacy.form import Form
 
 
 def test_folder_build_payload_contains_resource_update_and_attributes():

@@ -9,15 +9,29 @@ from .exceptions import (
     ConfigurationError,
     ConflictError,
     DeletedError,
+    MultipleMatchesError,
+    NoMatchError,
     NotFoundError,
     PermissionDeniedError,
     RateLimitError,
     ServerError,
 )
-from .field import Field
 from .ids import cuid
-from .manager import Manager
-from .record import Record
+from .legacy import Field, Manager, Record
+from .models import (
+    BillingAccount,
+    Database,
+    DatabaseChanges,
+    Folder,
+    Form,
+    OwnerRef,
+    Report,
+    Resource,
+    ResourceType,
+    SubForm,
+    UserAccount,
+    Visibility,
+)
 
 __all__ = [
     "__title__",
@@ -27,16 +41,30 @@ __all__ = [
     "ActivityInfoError",
     "AuthenticationError",
     "BadRequestError",
+    "BillingAccount",
     "Client",
     "ConfigurationError",
     "ConflictError",
+    "Database",
+    "DatabaseChanges",
     "DeletedError",
     "Field",
+    "Folder",
+    "Form",
     "Manager",
+    "MultipleMatchesError",
+    "NoMatchError",
     "NotFoundError",
+    "OwnerRef",
     "PermissionDeniedError",
     "RateLimitError",
     "Record",
+    "Report",
+    "Resource",
+    "ResourceType",
     "ServerError",
+    "SubForm",
+    "UserAccount",
+    "Visibility",
     "cuid",
 ]

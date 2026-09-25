@@ -6,11 +6,11 @@ from unittest.mock import Mock
 import pytest
 
 from activipyinfo import ConfigurationError, Manager
-from activipyinfo.database import Database
-from activipyinfo.field import Field
-from activipyinfo.folder import Folder
-from activipyinfo.form import Form
-from activipyinfo.record import Record
+from activipyinfo.legacy.database import Database
+from activipyinfo.legacy.field import Field
+from activipyinfo.legacy.folder import Folder
+from activipyinfo.legacy.form import Form
+from activipyinfo.legacy.record import Record
 
 API = "https://www.activityinfo.org/resources"
 
@@ -28,7 +28,8 @@ def test_manager_is_a_client_and_lists_databases(mocked):
         ],
     )
 
-    manager = Manager("token_123")
+    with pytest.warns(DeprecationWarning, match="Manager is deprecated"):
+        manager = Manager("token_123")
     dbs = manager.get_dbs()
 
     assert [db.id for db in dbs] == ["db1", "db2"]
@@ -38,7 +39,8 @@ def test_manager_is_a_client_and_lists_databases(mocked):
 
 
 def test_manager_get_db_returns_matching_database_or_none():
-    manager = Manager("token_123")
+    with pytest.warns(DeprecationWarning):
+        manager = Manager("token_123")
     manager.get_dbs = Mock(
         return_value=[Database("db1", "Database 1"), Database("db2", "Database 2")]
     )

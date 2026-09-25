@@ -17,10 +17,19 @@ def test_list_databases(live_client):
     assert all("databaseId" in db for db in databases)
 
 
-def test_account_status(live_client):
-    status = live_client.get("accounts/status")
+def test_me(live_client):
+    assert live_client.me().email
 
-    assert status["userAccount"]["email"]
+
+def test_databases_list_and_get(live_client):
+    summaries = live_client.databases.list()
+    if not summaries:
+        pytest.skip("the account has no database")
+
+    db = live_client.databases.get(summaries[0].id)
+
+    assert db.label == summaries[0].label
+    assert isinstance(db.tree(), str)
 
 
 def test_invalid_token_is_rejected(live_client):

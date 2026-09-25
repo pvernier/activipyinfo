@@ -1,9 +1,21 @@
-from .client import Client
+import warnings
+from typing import Any
+
+from ..client import Client
 from .database import Database
 
 
 class Manager(Client):
-    """Legacy entry point, kept until ``client.databases`` replaces it."""
+    """Deprecated: use :class:`activipyinfo.Client` and ``client.databases``."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        warnings.warn(
+            "Manager is deprecated; use activipyinfo.Client and "
+            "client.databases.list() / client.databases.get(id) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        super().__init__(*args, **kwargs)
 
     def get_dbs(self) -> list[Database]:
         """List the databases the user has access to."""

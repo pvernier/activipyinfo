@@ -6,7 +6,8 @@ import os
 import random
 import time
 from collections.abc import Callable
-from typing import Any
+from functools import cached_property
+from typing import TYPE_CHECKING, Any
 
 import requests
 
@@ -16,6 +17,10 @@ from .exceptions import (
     ConfigurationError,
     error_from_response,
 )
+
+if TYPE_CHECKING:
+    from .models.account import UserAccount
+    from .services.databases import DatabasesService
 
 __all__ = ["Client", "DEFAULT_BASE_URL", "TOKEN_ENV_VAR", "BASE_URL_ENV_VAR"]
 
@@ -51,7 +56,8 @@ class Client:
 
     Example:
         >>> client = Client()  # reads ACTIVITYINFO_TOKEN
-        >>> client.get("databases")
+        >>> client.me().email
+        >>> db = client.databases.get("ck8oykh8m5")
     """
 
     def __init__(
@@ -103,6 +109,23 @@ class Client:
     def close(self) -> None:
         """Close the underlying HTTP session."""
         self.session.close()
+
+    # ------------------------------------------------------------------
+    # High-level API
+    # ------------------------------------------------------------------
+
+    @cached_property
+    def databases(self) -> DatabasesService:
+        """List, get, create, update and delete databases."""
+        from .services.databases import DatabasesService
+
+        return DatabasesService(self)
+
+    def me(self) -> UserAccount:
+        """Return the account of the user who owns the API token."""
+        from .models.account import UserAccount
+
+        return UserAccount.from_api(self.get("accounts/status")["userAccount"])
 
     # ------------------------------------------------------------------
     # Low-level HTTP helpers

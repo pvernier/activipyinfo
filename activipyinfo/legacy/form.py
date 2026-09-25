@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from ..ids import cuid
 from ._base import ClientBound
 from .field import Field
-from .ids import cuid
 from .record import Record
 
 if TYPE_CHECKING:
-    from .client import Client
+    from ..client import Client
 
 
 class Form(ClientBound):
