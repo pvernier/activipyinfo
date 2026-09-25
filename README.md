@@ -8,9 +8,11 @@ ActiviPyInfo is a Python API for [ActivityInfo](https://www.activityinfo.org/)
 ## Installation
 
 The only runtime dependency is [`requests`](https://requests.readthedocs.io/).
+DataFrame support needs [pandas](https://pandas.pydata.org/), an optional extra.
 
 ```bash
 pip install git+https://github.com/pvernier/activipyinfo.git
+pip install "activipyinfo[pandas] @ git+https://github.com/pvernier/activipyinfo.git"
 ```
 
 ## Authentication
@@ -265,6 +267,45 @@ households.records.recover(household)
 `add_many`, `update_many` (rows with an `"_id"` key) and `delete_many` send
 changes in batches. If a batch fails, a `RecordBatchError` says which records
 were already saved (`error.submitted`).
+
+## Tables and data frames
+
+`form.table()` describes a query, like `getRecords() |> filter() |> select()`
+in R. Nothing is fetched until `collect()`, `first()`, `count()`,
+`to_pandas()` or iteration.
+
+```python
+table = (
+    households.table()
+    .select("head", "members", province="province.name")  # fields or formulas
+    .where(status="Displaced")  # field == value
+    .filter("members > 2")  # any boolean formula
+    .sort("members", desc=True)
+    .limit(10)
+)
+table.collect()  # [{"_id": ..., "head": "Alice", "members": 5, "province": ...}]
+table.count()
+table.to_pandas()
+
+households.to_pandas()  # every record, one column per field
+households.to_pandas(names="code")  # columns named by field code
+```
+
+By default, columns are named after field labels, and a reference field is
+shown as the key fields of the form it references ("Province P-code"). A
+subform's table has a `_parent` column with the parent record id.
+
+A form can be created from a DataFrame (or a list of dicts), like
+`createFormSchemaFromData()` in R, and filled from it:
+
+```python
+schema = FormSchema.from_data(df, "Households", keys=["Head"])
+form = folder.add_form(schema)
+form.records.add_many(df)  # NaN / None leave a field empty
+
+schema.to_pandas()  # one row per field
+db.users.to_pandas()
+```
 
 ## Development
 

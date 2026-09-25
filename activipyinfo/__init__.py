@@ -66,6 +66,7 @@ from .models import (
     SingleSelectField,
     SubForm,
     SubformField,
+    Table,
     TextField,
     UnknownField,
     UserAccount,
@@ -151,4 +152,5 @@ __all__ = [
     "QueryResult",
     "Record",
     "RecordHistoryEntry",
+    "Table",
 ]

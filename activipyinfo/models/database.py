@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from ..client import Client
     from .account import BillingAccount
     from .form_records import FormRecords
+    from .table import ColumnNames, Table
     from .user import DatabaseUser
 
 __all__ = [
@@ -212,6 +213,20 @@ class Form(Resource):
         from .form_records import FormRecords
 
         return FormRecords(self)
+
+    def table(self, names: ColumnNames = "label") -> Table:
+        """A lazy query over this form's records; see :class:`Table`.
+
+        ``names`` sets the default column names: field ``"label"`` (like the
+        R package's pretty columns), ``"code"`` or ``"id"``.
+        """
+        from .table import Table
+
+        return Table(self, names=names)
+
+    def to_pandas(self, names: ColumnNames = "label") -> Any:
+        """All records as a :class:`pandas.DataFrame` (needs pandas)."""
+        return self.table(names).to_pandas()
 
     @property
     def _forms(self) -> Any:
@@ -830,3 +845,26 @@ class DatabaseUsers:
     def restore(self, user_id: str) -> DatabaseUser:
         """Restore a removed user (by id) with their former role and grants."""
         return self._db.client.users.restore(self._db.id, user_id)
+
+    def to_pandas(self) -> Any:
+        """The users of the database as a :class:`pandas.DataFrame`."""
+        from .._pandas import require_pandas
+
+        pd = require_pandas()
+        return pd.DataFrame(
+            [
+                {
+                    "user_id": u.user_id,
+                    "email": u.email,
+                    "name": u.name,
+                    "role_id": u.role.role_id if u.role else None,
+                    "role_resources": u.role.resources if u.role else [],
+                    "role_parameters": u.role.parameters if u.role else {},
+                    "activation_status": u.activation_status,
+                    "user_license_type": u.user_license_type,
+                    "last_login_time": u.last_login_time,
+                    "locked": u.locked,
+                }
+                for u in self.list()
+            ]
+        )
