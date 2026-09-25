@@ -69,8 +69,8 @@ print(db.tree())
 
 db.folders, db.forms, db.children  # lists of Folder / Form
 admin = db.folder("Admin boundaries")  # by label or id
-form = db.form("Admin1")  # raises MultipleMatchesError
-form = db.find("Admin1", parent=admin)  #   if the label is not unique
+form = db.form("Admin1")  # MultipleMatchesError if the label is not unique
+form = db.find("Admin1", parent=admin)  # so narrow the search down
 
 folder = db.add_folder("Lebanon")  # at the database root
 archive = folder.add_folder("Archive")  # nested folder
