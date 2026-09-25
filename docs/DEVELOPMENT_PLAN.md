@@ -91,36 +91,53 @@ activipyinfo/
 ```python
 import activipyinfo as ai
 
-client = ai.Client()                                  # reads ACTIVITYINFO_TOKEN
-client.me()                                           # UserAccount
+client = ai.Client()  # reads ACTIVITYINFO_TOKEN
+client.me()  # UserAccount
 
 db = client.databases.create("Lebanon response")
 folder = db.add_folder("Admin boundaries")
 
-admin1 = folder.add_form(ai.FormSchema("Admin1", fields=[
-    ai.TextField("pcode", "P-code", key=True, required=True),
-    ai.TextField("name", "Name", required=True),
-]))
-admin1.records.add_many([
-    {"pcode": "LBN001", "name": "Mount Lebanon"},
-    {"pcode": "LBN002", "name": "Bekaa"},
-])
+admin1 = folder.add_form(
+    ai.FormSchema(
+        "Admin1",
+        fields=[
+            ai.TextField("pcode", "P-code", key=True, required=True),
+            ai.TextField("name", "Name", required=True),
+        ],
+    )
+)
+admin1.records.add_many(
+    [
+        {"pcode": "LBN001", "name": "Mount Lebanon"},
+        {"pcode": "LBN002", "name": "Bekaa"},
+    ]
+)
 
-admin2 = folder.add_form(ai.FormSchema("Admin2", fields=[
-    ai.TextField("pcode", "P-code", key=True),
-    ai.ReferenceField("admin1", "Admin1", form=admin1),
-]))
+admin2 = folder.add_form(
+    ai.FormSchema(
+        "Admin2",
+        fields=[
+            ai.TextField("pcode", "P-code", key=True),
+            ai.ReferenceField("admin1", "Admin1", form=admin1),
+        ],
+    )
+)
 admin2.records.add({"pcode": "LBN001001", "admin1": admin1.ref(pcode="LBN001")})
 
-df = (admin2.table()
-      .select("pcode", admin1_name="admin1.name")
-      .filter("pcode == 'LBN001001'")
-      .to_pandas())
+df = (
+    admin2.table()
+    .select("pcode", admin1_name="admin1.name")
+    .filter("pcode == 'LBN001001'")
+    .to_pandas()
+)
 
-role = ai.Role("Data entry", permissions=[
-    ai.Permission(ai.Operation.VIEW),
-    ai.Permission(ai.Operation.ADD_RECORD),
-])
+role = ai.Role(
+    "Data entry",
+    permissions=[
+        ai.Permission(ai.Operation.VIEW),
+        ai.Permission(ai.Operation.ADD_RECORD),
+    ],
+)
 db.roles.add(role)
 db.users.add("jane@example.org", "Jane", role=role, resources=[folder])
 ```
