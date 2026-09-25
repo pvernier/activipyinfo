@@ -17,7 +17,6 @@ from .exceptions import (
     ServerError,
 )
 from .ids import cuid
-from .legacy import Field, Manager, Record
 from .models import (
     AttachmentField,
     BillingAccount,
@@ -84,14 +83,11 @@ __all__ = [
     "ConfigurationError",
     "ConflictError",
     "DeletedError",
-    "Field",
-    "Manager",
     "MultipleMatchesError",
     "NoMatchError",
     "NotFoundError",
     "PermissionDeniedError",
     "RateLimitError",
-    "Record",
     "ServerError",
     "cuid",
     "BillingAccount",
