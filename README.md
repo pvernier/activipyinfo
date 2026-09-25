@@ -101,24 +101,24 @@ from activipyinfo import Grant, Role, RoleParameter, resource_permissions
 
 partners = db.form("Partners")
 role = Role(
-    "Reporting partner",                         # id derived: "reportingpartner"
+    "Reporting partner",  # id derived: "reportingpartner"
     grants=[
-        Grant(db, resource_permissions()),       # view everything
+        Grant(db, resource_permissions()),  # view everything
         Grant(
             db.folder("Reporting"),
             resource_permissions(
                 add_record=True,
                 edit_record="[partner] == @user.partner",  # record-level rule
             ),
-            optional=True,                       # only for users assigned to it
+            optional=True,  # only for users assigned to it
         ),
     ],
     parameters=[RoleParameter("partner", "Partner", partners)],
 )
-db.roles.add(role)                               # or db.roles.update(role)
+db.roles.add(role)  # or db.roles.update(role)
 
 [r.label for r in db.roles]
-db.roles.get("Reporting partner")                # by id or label
+db.roles.get("Reporting partner")  # by id or label
 db.roles.delete("Reporting partner")
 ```
 
@@ -131,23 +131,25 @@ for user in db.users.list():
     print(user.email, user.role.role_id, user.last_login_time)
 
 db.users.add(
-    "alice@example.org", "Alice", "Reporting partner",
-    resources=[db.folder("Reporting")],          # default: the whole database
+    "alice@example.org",
+    "Alice",
+    "Reporting partner",
+    resources=[db.folder("Reporting")],  # default: the whole database
     parameters={"partner": "<partner record id>"},
 )
 db.users.set_role("alice@example.org", "Read only")
 db.users.get("alice@example.org").grants
 db.users.remove("alice@example.org")
 
-client.users.list("ck8oykh8m5")                  # same methods, by database id
+client.users.list("ck8oykh8m5")  # same methods, by database id
 ```
 
 ## Billing account (read-only)
 
 ```python
-client.billing.get()                             # defaults to your own account
+client.billing.get()  # defaults to your own account
 client.billing.users(owners_only=False)
-client.billing.databases()                       # usage counts per database
+client.billing.databases()  # usage counts per database
 client.billing.domains()
 ```
 
