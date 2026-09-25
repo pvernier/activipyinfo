@@ -23,6 +23,8 @@ if TYPE_CHECKING:
     from .services.billing import BillingService
     from .services.databases import DatabasesService
     from .services.forms import FormsService
+    from .services.queries import QueriesService
+    from .services.records import RecordsService
     from .services.users import UsersService
 
 __all__ = ["Client", "DEFAULT_BASE_URL", "TOKEN_ENV_VAR", "BASE_URL_ENV_VAR"]
@@ -130,6 +132,20 @@ class Client:
         from .services.forms import FormsService
 
         return FormsService(self)
+
+    @cached_property
+    def records(self) -> RecordsService:
+        """Records by form id, with raw values (see also ``form.records``)."""
+        from .services.records import RecordsService
+
+        return RecordsService(self)
+
+    @cached_property
+    def queries(self) -> QueriesService:
+        """Column queries over a form's records."""
+        from .services.queries import QueriesService
+
+        return QueriesService(self)
 
     @cached_property
     def users(self) -> UsersService:

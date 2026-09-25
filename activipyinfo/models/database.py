@@ -4,6 +4,7 @@ import builtins
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, Self, TypeVar, overload
 
 from ..exceptions import ConfigurationError, NoMatchError, NotFoundError
@@ -17,6 +18,7 @@ from .permissions import Grant, Role, RoleAssignment
 if TYPE_CHECKING:
     from ..client import Client
     from .account import BillingAccount
+    from .form_records import FormRecords
     from .user import DatabaseUser
 
 __all__ = [
@@ -202,10 +204,14 @@ class Folder(Resource):
 
 
 class Form(Resource):
-    """A form of a database: its schema can be read and changed.
+    """A form of a database: its schema and its records."""
 
-    Record support comes in phase 4.
-    """
+    @cached_property
+    def records(self) -> FormRecords:
+        """Read, add, update and delete this form's records."""
+        from .form_records import FormRecords
+
+        return FormRecords(self)
 
     @property
     def _forms(self) -> Any:

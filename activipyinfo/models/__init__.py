@@ -45,6 +45,7 @@ from .fields import (
     UserField,
     WeekField,
 )
+from .form_records import FormRecords
 from .form_schema import FormSchema
 from .permissions import (
     Grant,
@@ -56,6 +57,7 @@ from .permissions import (
     database_permissions,
     resource_permissions,
 )
+from .record import QueryResult, Record, RecordHistoryEntry
 from .user import DatabaseUser
 
 __all__ = [
@@ -75,6 +77,7 @@ __all__ = [
     "Folder",
     "Form",
     "FormField",
+    "FormRecords",
     "FormSchema",
     "FortnightField",
     "GeoPointField",
@@ -88,6 +91,9 @@ __all__ = [
     "OwnerRef",
     "Permission",
     "QuantityField",
+    "QueryResult",
+    "Record",
+    "RecordHistoryEntry",
     "ReferenceField",
     "Report",
     "Resource",

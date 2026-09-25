@@ -28,6 +28,27 @@ class MultipleMatchesError(ActivityInfoError, LookupError):
     """Raised when a lookup that expects one result matches several."""
 
 
+class RecordBatchError(ActivityInfoError):
+    """Raised when a batch of record changes fails part-way.
+
+    Attributes:
+        submitted: Ids of the records changed by the batches sent before
+            the failure (these changes were applied).
+        failed: The changes of the batch that failed (not applied).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        submitted: list[str],
+        failed: list[dict[str, Any]],
+    ) -> None:
+        super().__init__(message)
+        self.submitted = submitted
+        self.failed = failed
+
+
 class APIError(ActivityInfoError):
     """Raised when the API answers with an HTTP error status.
 
