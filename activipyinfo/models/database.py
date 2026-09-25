@@ -10,6 +10,8 @@ from ..exceptions import ConfigurationError, NoMatchError
 from ..ids import cuid
 from ._common import one
 from .changes import DatabaseChanges
+from .fields import FormField, SubformField
+from .form_schema import FormSchema
 from .permissions import Grant, Role, RoleAssignment
 
 if TYPE_CHECKING:
@@ -192,9 +194,115 @@ class Folder(Resource):
         """Create a sub-folder."""
         return self.database.add_folder(label, parent=self, id=id)
 
+    def add_form(
+        self, schema: FormSchema | str, fields: list[FormField] | None = None
+    ) -> Form:
+        """Create a form in this folder. See :meth:`Database.add_form`."""
+        return self.database.add_form(schema, fields, parent=self)
+
 
 class Form(Resource):
-    """A form of a database. Schema and records support comes in later phases."""
+    """A form of a database: its schema can be read and changed.
+
+    Record support comes in phase 4.
+    """
+
+    @property
+    def _forms(self) -> Any:
+        return self.database.client.forms
+
+    def schema(self) -> FormSchema:
+        """Fetch the form's current schema."""
+        schema: FormSchema = self._forms.get_schema(self.id)
+        return schema
+
+    def update_schema(self, schema: FormSchema) -> FormSchema:
+        """Replace the form's schema; fields are matched by id.
+
+        Typical use: ``s = form.schema()``, edit ``s``, then
+        ``form.update_schema(s)``. A field missing from ``schema`` is deleted
+        (with its data, which :meth:`recover_field` can restore).
+        """
+        if schema.id != self.id:
+            raise ValueError(f"Schema {schema.id!r} is not the schema of {self!r}")
+        updated: FormSchema = self._forms.update_schema(schema)
+        if updated.label != self.label:
+            self.database.refresh()
+        return updated
+
+    def add_field(
+        self, new_field: FormField, *, after: FormField | str | None = None
+    ) -> FormField:
+        """Add a field at the end of the form, or after another field."""
+        schema = self.schema()
+        schema.add_field(new_field, after=after)
+        return self.update_schema(schema).field(new_field.id)
+
+    def delete_field(self, key: FormField | str) -> FormField:
+        """Delete a field (by object, id, code or label) and return it."""
+        schema = self.schema()
+        removed = schema.remove_field(
+            key if isinstance(key, str) else schema.field(key.id)
+        )
+        self.update_schema(schema)
+        return removed
+
+    def recover_field(self, field_id: str) -> FormSchema:
+        """Restore a deleted field, with its data."""
+        schema: FormSchema = self._forms.recover_field(self.id, field_id)
+        return schema
+
+    def schema_version(self, version: int) -> FormSchema:
+        """Fetch an earlier version of the schema."""
+        schema: FormSchema = self._forms.schema_version(self.id, version)
+        return schema
+
+    def add_subform(
+        self, schema: FormSchema | str, fields: list[FormField] | None = None
+    ) -> SubForm:
+        """Create a subform (repeating records) and link it from this form.
+
+        A :class:`SubformField` pointing to the new subform is added to this
+        form's schema if the server did not add one.
+        """
+        subform_schema = _as_schema(schema, fields)
+        subform_schema.database_id = self.database.id
+        subform_schema.parent_form_id = self.id
+        self._forms.add(subform_schema)
+
+        parent_schema = self.schema()
+        if not any(
+            f.subform_id == subform_schema.id for f in parent_schema.subform_fields
+        ):
+            parent_schema.add_field(
+                SubformField(subform_schema.label, subform_schema.id)
+            )
+            self.update_schema(parent_schema)
+
+        self.database.refresh()
+        subform = self.database.resource(subform_schema.id)
+        assert isinstance(subform, SubForm)
+        return subform
+
+    def relocate(self, database: Database | str) -> None:
+        """Move this form, with its subforms and records, to another database."""
+        database_id = database if isinstance(database, str) else database.id
+        self._forms.relocate(self.id, database_id)
+        self.database.refresh()
+
+    def duplicate(self) -> Form:
+        """Copy this form's structure (not its records) in the same database."""
+        db = self.database
+        before = {r.id for r in db.resources}
+        updated = self._forms.duplicate(db.id, self.id)
+        db._load(updated.raw)
+        if db._resources is None:
+            db.refresh()
+        copy = one(
+            (r for r in db.forms if r.id not in before),
+            f"copy of {self!r}",
+        )
+        return copy
 
 
 class SubForm(Form):
@@ -479,6 +587,30 @@ class Database:
         assert isinstance(folder, Folder)
         return folder
 
+    def add_form(
+        self,
+        schema: FormSchema | str,
+        fields: list[FormField] | None = None,
+        *,
+        parent: Folder | Database | str | None = None,
+    ) -> Form:
+        """Create a form.
+
+        Args:
+            schema: A :class:`FormSchema`, or just the new form's label.
+            fields: The fields, when ``schema`` is a label.
+            parent: Folder that will contain the form (default: the root).
+
+        Example:
+            >>> db.add_form("Households", [TextField("Head", key=True)])
+        """
+        form_schema = _as_schema(schema, fields)
+        form_schema.database_id = self.id
+        parent_id = self._parent_id(parent)
+        self.client.forms.add(form_schema, parent_id=parent_id)
+        self.refresh()
+        return self.form(form_schema.id)
+
     def delete(self) -> None:
         """Delete the database. Only its owner can do this."""
         self.client.databases.delete(self.id)
@@ -486,6 +618,14 @@ class Database:
     def billing_account(self) -> BillingAccount:
         """Return the billing account that owns this database."""
         return self.client.databases.billing_account(self.id)
+
+
+def _as_schema(schema: FormSchema | str, fields: list[FormField] | None) -> FormSchema:
+    if isinstance(schema, FormSchema):
+        if fields:
+            raise ValueError("Pass the fields in the FormSchema, not separately")
+        return schema
+    return FormSchema(schema, fields or [])
 
 
 # ----------------------------------------------------------------------

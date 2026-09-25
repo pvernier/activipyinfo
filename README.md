@@ -153,11 +153,76 @@ client.billing.databases()  # usage counts per database
 client.billing.domains()
 ```
 
-## Forms and records (legacy API)
+## Forms and fields
 
-Creating forms and records still uses the original object API until the new
-one lands (phases 3 and 4 of [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)).
-`Manager` is deprecated and will be removed at that point.
+There is one class per field type, modelled on the R package's builders:
+`TextField`, `MultilineField`, `QuantityField`, `DateField`, `WeekField`,
+`MonthField`, `SingleSelectField`, `MultiSelectField`, `ReferenceField`,
+`MultiReferenceField`, `UserField`, `SubformField`, `CalculatedField`,
+`SerialNumberField`, `GeoPointField`, `AttachmentField`, `SectionHeader` and
+`NoteField`.
+
+```python
+from activipyinfo import (
+    FormSchema,
+    QuantityField,
+    ReferenceField,
+    SelectOption,
+    SingleSelectField,
+    TextField,
+)
+
+folder = db.folder("Admin boundaries")
+provinces = folder.add_form(
+    "Provinces",
+    [
+        TextField("P-code", code="pcode", key=True),
+        TextField("Name", code="name", required=True),
+    ],
+)
+
+households = db.add_form(
+    FormSchema(
+        "Households",
+        [
+            ReferenceField("Province", provinces, code="province"),
+            TextField("Head of household", code="head", key=True),
+            QuantityField("Members", code="members", units="people"),
+            SingleSelectField("Status", ["Resident", "Displaced"], code="status"),
+        ],
+    )
+)
+members = households.add_subform("Members", [TextField("Name", code="name")])
+```
+
+Reading and changing a schema:
+
+```python
+schema = households.schema()
+print(schema)  # one line per field: code, type, label
+schema["members"].units  # fields by code, id or label
+schema.describe()  # one dict per field, like as.data.frame() in R
+
+households.add_field(TextField("Phone", code="phone"), after="head")
+households.delete_field("phone")  # recover with households.recover_field(id)
+
+schema = households.schema()
+schema["status"].options.append(SelectOption("Returned"))
+households.update_schema(schema)
+
+households.duplicate()  # structure only, no records
+households.relocate(other_db)  # with subforms and records
+```
+
+Schemas keep any property the library does not model, so reading a schema
+and sending it back never loses information.
+
+## Records (legacy API)
+
+Adding records still uses the original object API until the new one lands
+(phase 4 of [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)), and it
+needs forms created with the legacy classes below. `Manager` is deprecated
+and will be removed at that point.
 
 ```python
 from activipyinfo import Field, Manager, Record
@@ -167,7 +232,7 @@ my_db = ai.get_db("mydbuid")
 my_folder = my_db.create_folder("Lebanon")
 ```
 
-## Create a form
+### Create a form
 
 ```python
 field1 = Field(
@@ -202,7 +267,7 @@ print(my_form)
 
 At this stage the form is empty, we need to add records
 
-## Add records
+### Add records
 
 ```python
 record_1 = Record([field1, field2], ["LBN001", "Mount Lebanon"])
@@ -212,13 +277,13 @@ my_form.add_record(record_1)
 my_form.add_record(record_2)
 ```
 
-## Delete a record
+### Delete a record
 
 ```python
 my_form.delete_record(record_2)
 ```
 
-## Add a new form with a reference to the first form
+### Add a new form with a reference to the first form
 
 ```python
 field3 = Field(
@@ -260,7 +325,7 @@ fields2 = [field3, field4, field5]
 my_form2 = my_folder.create_form("Admin2", fields2)
 ```
 
-## Add records to the second form
+### Add records to the second form
 
 ```python
 record_3 = Record([field3, field4, field5], ["LBN001001", "Metn", "LBN001"])
@@ -272,7 +337,7 @@ my_form2.add_record(record_4)
 my_form2.add_record(record_5)
 ```
 
-## Update a record which is a reference
+### Update a record which is a reference
 
 record_1 was `["LBN001", "Mount Lebanon"]`. We are updating it to `["LBN003", "El Nabatieh"]`.
 

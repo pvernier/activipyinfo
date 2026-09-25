@@ -230,6 +230,22 @@ Endpoints:
 6. Helpers: `db.users.to_pandas()`, and `db.users.sync(list_of_dicts)` for idempotent bulk onboarding. The sync helper can wait until later.
 
 ### Phase 3: Forms and schemas
+
+> **Status: done** on branch `phase-3-forms`.
+> - Payloads follow the R package: select cardinality and presentation are
+>   sent in lower case (`"single"`, `"automatic"`), while the API reference
+>   documents upper case. Parsing accepts both. New forms, subforms included,
+>   are created with `formResource.type = "FORM"`, as R does.
+> - Every class round-trips the API JSON. Properties it does not model, and
+>   field types it does not know (`UnknownField`), are kept and sent back
+>   unchanged. A fixture with every field type checks this.
+> - `form.add_subform()` links the subform from its parent (a
+>   `SubformField`) only if the server has not already done so.
+>   `tests/integration/test_forms_live.py` checks what the server does.
+> - Most write endpoints' responses are not documented, so the schema is
+>   read from the response when present and fetched again otherwise.
+> - Deferred: `FormSchema.from_data()`, which needs the pandas extra
+>   (Phase 5).
 Endpoints: `POST /databases/{id}/forms`, `GET` and `POST /form/{id}/schema`, schema version and diff, relocate, duplicate, recover a field, translations.
 1. Typed field classes, one per API type, with shared attributes (`code`, `label`, `description`, `required`, `key`, `hidden`, `relevance`, `validation`, `required_condition`). Each class has `to_api()` / `from_api()`:
    - `TextField` (`FREE_TEXT`: input mask, barcode)
@@ -310,6 +326,7 @@ Endpoints: `POST /jobs`, `GET /jobs/{id}`, the job file endpoint, and descriptor
 9. Phase 6: the job runner, import and export.
 
 ## 5. Open questions to settle against the live API
+- Field and form payloads: lower-case vs upper-case enum values (`single`/`SINGLE`), and whether subforms should be created as `FORM` or `SUB_FORM`.
 - Role grants and user roles: the R package and the API reference disagree on the payload shape (objects vs strings, `id` vs `roleId`). `tests/integration/test_users_roles_live.py` checks the R format.
 - Per-user grants (`POST …/users/{id}/grants`): are operations strings or permission objects?
 - How to rename a database or change its description (the web app does it, but the endpoint isn't documented).
@@ -317,4 +334,4 @@ Endpoints: `POST /jobs`, `GET /jobs/{id}`, the job file endpoint, and descriptor
 - The staging endpoint behind R `stageImport`.
 - Whether `/resources/update` accepts field **codes** for every field type (the documentation says "IDs or codes").
 - The exact response shape of `/query/columns`. Save it as a fixture.
-- How to give a subform record its `parentRecordId`, and how to create subform schemas.
+- How to give a subform record its `parentRecordId`.
