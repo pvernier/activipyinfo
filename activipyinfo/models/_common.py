@@ -2,11 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import UTC, date, datetime
-from typing import Any, TypeVar
+from typing import Any
 
 from ..exceptions import MultipleMatchesError, NoMatchError
-
-T = TypeVar("T")
 
 
 def ms_to_datetime(value: Any) -> datetime | None:
@@ -38,7 +36,7 @@ def parse_time(value: Any) -> datetime | date | None:
     return None
 
 
-def one(matches: Iterable[T], description: str) -> T:
+def one[T](matches: Iterable[T], description: str) -> T:
     """Return the single item of ``matches``, or raise a lookup error."""
     found = list(matches)
     if not found:
