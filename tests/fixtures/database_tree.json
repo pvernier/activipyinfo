@@ -10,7 +10,34 @@
   "languages": ["en", "ar"],
   "suspended": false,
   "role": {"roleId": "admin", "roleParameters": {}, "roleResources": ["db1"]},
-  "roles": [],
+  "roles": [
+    {
+      "id": "readonly",
+      "label": "Read only",
+      "permissions": [],
+      "parameters": [],
+      "filters": [],
+      "grants": [{"resourceId": "db1", "operations": ["VIEW", "EXPORT_RECORDS"]}]
+    },
+    {
+      "id": "dataentry",
+      "label": "Data entry",
+      "permissions": [{"operation": "MANAGE_USERS", "securityCategories": []}],
+      "parameters": [{"parameterId": "partner", "label": "Partner", "range": "fma1"}],
+      "filters": [],
+      "grants": [
+        {
+          "resourceId": "fadmin",
+          "operations": [
+            {"operation": "VIEW", "securityCategories": []},
+            {"operation": "EDIT_RECORD", "filter": "[partner] == @user.partner", "securityCategories": ["reviewer"]}
+          ],
+          "optional": true
+        }
+      ],
+      "grantBased": true
+    }
+  ],
   "securityCategories": [],
   "resources": [
     {"id": "fadmin", "parentId": "db1", "label": "Admin boundaries", "type": "FOLDER", "visibility": "PRIVATE"},
