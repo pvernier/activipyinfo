@@ -7,8 +7,9 @@ fetched by :meth:`Table.collect`, :meth:`Table.to_pandas` or iteration.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from .fields import (
@@ -289,6 +290,56 @@ class Table:
             self.form.id, {ID_COLUMN: "_id"}, filter=self.filter_formula
         )
         return len(result)
+
+    def export(
+        self,
+        file_format: str = "CSV",
+        destination: str | Path | None = None,
+        *,
+        timeout: float | None = None,
+        progress: Callable[[Any], None] | None = None,
+    ) -> Path:
+        """Export the table's columns, filter and sort order to a file.
+
+        The file is produced by the server (an ``exportForm`` job), which
+        suits large forms, then downloaded to ``destination`` (a file path
+        or directory; default: the current directory).
+
+        Args:
+            file_format: ``"CSV"``, ``"XLSX"``, ``"NDJSON"``, ``"SQLITE"``,
+                ``"TEXT"``, ``"DOCX"`` or ``"PDF"``.
+        """
+        from ..services.jobs import utc_offset_minutes
+
+        if self.skip or self.max_rows is not None:
+            raise ValueError(
+                "Exports include every matching record: remove offset/limit"
+            )
+        table_model: dict[str, Any] = {
+            "formId": self.form.id,
+            "columns": [
+                {"id": f"c{i}", "label": name, "formula": formula, "translate": False}
+                for i, (name, formula) in enumerate(self.columns().items())
+            ],
+            "ordering": [
+                {"formula": formula, "ascending": direction == "ASC"}
+                for formula, direction in self.order
+            ],
+        }
+        if self.filter_formula:
+            table_model["filter"] = self.filter_formula
+        job = self.form.database.client.jobs.run(
+            "exportForm",
+            {
+                "tableModels": [table_model],
+                "format": file_format.upper(),
+                "utcOffset": utc_offset_minutes(),
+            },
+            timeout=timeout,
+            progress=progress,
+        )
+        path: Path = job.download(destination)
+        return path
 
     def to_pandas(self) -> Any:
         """Run the query and return a :class:`pandas.DataFrame`.

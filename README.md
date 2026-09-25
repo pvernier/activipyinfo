@@ -307,6 +307,32 @@ schema.to_pandas()  # one row per field
 db.users.to_pandas()
 ```
 
+## Imports, exports and other jobs
+
+Heavy work runs as server-side jobs; these methods wait for the job to
+finish (`timeout=` and a `progress=` callback are available).
+
+```python
+# Import a large dataset through the server's import pipeline (like R
+# importRecords): rows whose key fields match an existing record update it.
+people.records.bulk_import(df)
+
+# Export to a file, downloaded to the current directory (or a given path).
+households.export("xlsx")  # every record
+households.table().select("head", "members").where(status="Displaced").export("csv")
+db.export("xlsx", folder=db.folder("Admin boundaries"))  # several forms
+
+db.import_xlsform("survey.xlsx", parent=folder)  # returns the new Form
+db.duplicate("Lebanon response (copy)", records=False)  # returns the new Database
+db.audit_log(limit=100, types=["RECORD"])  # most recent events first
+
+job = client.jobs.run("exportForm", descriptor)  # any job type
+job.download("out.csv")
+```
+
+A failed job raises `JobFailedError` (with the server's error code and
+message); waiting longer than `timeout` raises `JobTimeoutError`.
+
 ## Development
 
 ```bash

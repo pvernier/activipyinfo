@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from .services.billing import BillingService
     from .services.databases import DatabasesService
     from .services.forms import FormsService
+    from .services.jobs import JobsService
     from .services.queries import QueriesService
     from .services.records import RecordsService
     from .services.users import UsersService
@@ -146,6 +147,13 @@ class Client:
         from .services.queries import QueriesService
 
         return QueriesService(self)
+
+    @cached_property
+    def jobs(self) -> JobsService:
+        """Background jobs (imports, exports...) and file staging."""
+        from .services.jobs import JobsService
+
+        return JobsService(self)
 
     @cached_property
     def users(self) -> UsersService:
