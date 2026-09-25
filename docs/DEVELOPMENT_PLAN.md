@@ -350,10 +350,16 @@ Settled by the second live run (2026-09-25):
   references it ("First update the parent schema with a new subform field,
   and then update the subform").
 
+Settled by the third live run (2026-09-25): all write tests pass.
+- Subforms are created by `add_subform()` (parent field first).
+  `duplicate()` copies a form's schema.
+- Still not visible from the tests: which of the two calls creates the
+  subform after its parent field (the subform's schema endpoint, or
+  `POST /databases/{id}/forms` as a fallback). Both paths are kept.
+- Personal API tokens could not read the billing account of the test
+  database (HTTP 403), so that smoke test is skipped for them.
+
 Still open:
-- Creating the subform after its parent field: through the subform's schema
-  endpoint (`POST /form/{id}/schema`), or `POST /databases/{id}/forms` as a
-  fallback. The next live run shows which one the server accepts.
 - User roles: the R format (`id`/`parameters`/`resources`) is not checked
   live yet (needs `ACTIVITYINFO_TEST_EMAIL`).
 - Per-user grants (`POST …/users/{id}/grants`): are operations strings or permission objects?
