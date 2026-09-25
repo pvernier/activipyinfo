@@ -317,9 +317,11 @@ Endpoints: `POST /resources/update` (at most 200 changes), `GET /form/{id}/recor
 >   needed. `FormSchema.from_data()` (R `createFormSchemaFromData`),
 >   `records.add_many(df)` (NaN leaves a field empty), `schema.to_pandas()`
 >   and `db.users.to_pandas()`.
-> - `tests/integration/test_tables_live.py` checks the tree endpoint, dotted
->   reference formulas, `@parent`, sorting, windows and the DataFrame round
->   trip.
+> - Verified live (2026-09-25): the form tree endpoint, dotted reference
+>   formulas (`province.pcode`, `province.name`), `@parent`, sorting,
+>   windows (`offset`/`limit`), `count()` and the DataFrame round trip
+>   (`from_data` -> `add_form` -> `add_many(df)` -> `to_pandas`) all work
+>   (`tests/integration/test_tables_live.py`).
 > - Deferred: a formula helper (R `toActivityInfoFormula`), pivot queries
 >   (`POST /query/pivot`) and `/query/rows`.
 Endpoints: `POST /query/columns` (formId, columns[{id, formula}], filter, sort, filterSets), `POST /query/rows`, `GET /form/{id}/query`, pivot.
