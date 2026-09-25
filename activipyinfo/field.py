@@ -1,9 +1,9 @@
-from .utils import create_unique_id
+from .ids import cuid
 
 
 class Field:
-    def __init__(self, data: dict, id: str = None) -> None:
-        self.id = create_unique_id() if id is None else id
+    def __init__(self, data: dict, id: str | None = None) -> None:
+        self.id = cuid() if id is None else id
         self.data = data
 
     def __repr__(self):

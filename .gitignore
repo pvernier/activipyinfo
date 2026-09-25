@@ -1,5 +1,9 @@
-client.py
-reader.py
+/client.py
+/reader.py
 
 __pycache__/
 .vscode/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/

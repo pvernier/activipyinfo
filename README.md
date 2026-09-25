@@ -5,28 +5,43 @@
 ActiviPyInfo is a Python API for [ActivityInfo](https://www.activityinfo.org/)
 
 
-## Dependencies
+## Installation
 
-Currently, the only dependency is [`requests`](https://requests.readthedocs.io/).
-
-To install it, run:
+The only runtime dependency is [`requests`](https://requests.readthedocs.io/).
 
 ```bash
-$ pip install requests
+pip install git+https://github.com/pvernier/activipyinfo.git
 ```
+
+## Authentication
+
+Create a personal API token in your ActivityInfo account settings, then either
+pass it explicitly or set the `ACTIVITYINFO_TOKEN` environment variable.
+For a self-managed server, pass `base_url=...` or set `ACTIVITYINFO_BASE_URL`.
+
+```python
+from activipyinfo import Client
+
+client = Client()  # reads ACTIVITYINFO_TOKEN
+client = Client("XXXX")  # or pass the token
+client.get("databases")  # low-level call to GET /resources/databases
+```
+
+API errors raise subclasses of `activipyinfo.APIError` (`AuthenticationError`,
+`NotFoundError`, `PermissionDeniedError`, ...) that carry the HTTP status and
+the error code returned by ActivityInfo. Rate-limited and temporarily
+unavailable requests are retried automatically.
 
 ## Usage
 
-Start by importing the necessary classes and initializing the `Manager` object with your API token.
+The object API below is being redesigned (see
+[docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)). `Manager` is a `Client`
+with a few legacy helpers.
 
 ```python
-
 from activipyinfo import Field, Manager, Record
 
-MY_TOKEN = "XXXX"
-
-ai = Manager(MY_TOKEN)
-
+ai = Manager("XXXX")  # or Manager() to read ACTIVITYINFO_TOKEN
 ```
 
 ## List databases
@@ -172,3 +187,12 @@ my_form.update_record(record_1, ["LBN003", "El Nabatieh"])
 ```
 
 Now the reference of "LBN001" has also been updated in the admin2 form to "LBN003".
+
+## Development
+
+```bash
+uv sync                                  # install the package and dev tools
+uv run pytest                            # unit tests (HTTP is mocked)
+ACTIVITYINFO_TOKEN=... uv run pytest -m integration   # read-only live API checks
+uv run ruff check . && uv run ruff format --check . && uv run mypy
+```
