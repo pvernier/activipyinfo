@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import builtins
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import StrEnum
 from functools import cached_property
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Self, TypeVar, overload
 
 from ..exceptions import ConfigurationError, NoMatchError, NotFoundError
@@ -18,7 +20,9 @@ from .permissions import Grant, Role, RoleAssignment
 if TYPE_CHECKING:
     from ..client import Client
     from .account import BillingAccount
+    from .audit import AuditEvent
     from .form_records import FormRecords
+    from .job import Job
     from .table import ColumnNames, Table
     from .user import DatabaseUser
 
@@ -227,6 +231,20 @@ class Form(Resource):
     def to_pandas(self, names: ColumnNames = "label") -> Any:
         """All records as a :class:`pandas.DataFrame` (needs pandas)."""
         return self.table(names).to_pandas()
+
+    def export(
+        self,
+        file_format: str = "CSV",
+        destination: str | Path | None = None,
+        *,
+        names: ColumnNames = "label",
+        timeout: float | None = None,
+    ) -> Path:
+        """Export all records to a file on the server and download it.
+
+        See :meth:`Table.export` to export chosen columns or records.
+        """
+        return self.table(names).export(file_format, destination, timeout=timeout)
 
     @property
     def _forms(self) -> Any:
@@ -652,6 +670,108 @@ class Database:
         self.client.forms.add(form_schema, parent_id=parent_id)
         self.refresh()
         return self.form(form_schema.id)
+
+    def export(
+        self,
+        file_format: str = "XLSX",
+        destination: str | Path | None = None,
+        *,
+        folder: Resource | str | None = None,
+        layout: str = "WIDE",
+        filter: str | None = None,
+        include_blanks: bool = False,
+        timeout: float | None = None,
+        progress: Callable[[Job], None] | None = None,
+    ) -> Path:
+        """Export the records of all forms (or of one folder or form).
+
+        Args:
+            file_format: ``"XLSX"``, ``"CSV"``, ``"NDJSON"``, ``"SQLITE"``...
+            destination: File path or directory (default: current directory).
+            folder: Only export this folder or form.
+            layout: ``"WIDE"`` (one column per field) or ``"LONG"``.
+            filter: A formula applied to every form.
+            include_blanks: Include rows for blank quantities (long layout).
+        """
+        from ..services.jobs import utc_offset_minutes
+
+        descriptor: dict[str, Any] = {
+            "databaseId": self.id,
+            "format": layout.upper(),
+            "fileFormat": file_format.upper(),
+            "includeBlanks": include_blanks,
+            "utcOffset": utc_offset_minutes(),
+        }
+        if folder is not None:
+            descriptor["folderId"] = folder if isinstance(folder, str) else folder.id
+        if filter:
+            descriptor["filter"] = filter
+        job = self.client.jobs.run(
+            "exportDatabaseForms", descriptor, timeout=timeout, progress=progress
+        )
+        return job.download(destination)
+
+    def duplicate(
+        self,
+        label: str,
+        *,
+        records: bool = False,
+        timeout: float | None = None,
+        progress: Callable[[Job], None] | None = None,
+    ) -> Database:
+        """Copy this database (forms, folders, roles; optionally its records)
+        into a new database."""
+        return self.client.databases.duplicate(
+            self.id, label, records=records, timeout=timeout, progress=progress
+        )
+
+    def import_xlsform(
+        self,
+        xlsform: str | Path | bytes,
+        parent: Folder | Database | str | None = None,
+        *,
+        timeout: float | None = None,
+    ) -> Form:
+        """Create a form from an XLSForm (``.xlsx`` path or bytes)."""
+        content = xlsform if isinstance(xlsform, bytes) else Path(xlsform).read_bytes()
+        import_id = self.client.jobs.stage(
+            content,
+            content_type=(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+        )
+        job = self.client.jobs.run(
+            "importXlsform",
+            {
+                "databaseId": self.id,
+                "parentId": self._parent_id(parent),
+                "importId": import_id,
+            },
+            timeout=timeout,
+        )
+        self.refresh()
+        return self.form(job.result["formId"])
+
+    def audit_log(
+        self,
+        *,
+        before: datetime | None = None,
+        after: datetime | None = None,
+        resource: Resource | str | None = None,
+        types: Sequence[str] | None = None,
+        limit: int = 1000,
+    ) -> list[AuditEvent]:
+        """Audit log events, most recent first; see
+        :meth:`activipyinfo.services.DatabasesService.audit_log`."""
+        resource_id = resource.id if isinstance(resource, Resource) else resource
+        return self.client.databases.audit_log(
+            self.id,
+            before=before,
+            after=after,
+            resource_id=resource_id,
+            types=types,
+            limit=limit,
+        )
 
     def delete(self) -> None:
         """Delete the database. Only its owner can do this."""

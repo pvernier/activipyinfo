@@ -2,21 +2,31 @@ from __future__ import annotations
 
 import builtins
 import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from .._pandas import is_missing
 from ..ids import cuid
 from ._common import one
-from .fields import FormField, _SelectField
+from .fields import (
+    DateField,
+    FormField,
+    MonthField,
+    MultilineField,
+    QuantityField,
+    ReferenceField,
+    TextField,
+    _SelectField,
+)
 from .form_schema import FormSchema
 from .record import Record, RecordHistoryEntry
-from .values import encode_value, is_read_only
+from .values import decode_value, encode_value, is_read_only
 
 if TYPE_CHECKING:
     from ..services.records import RecordsService
     from .database import Form
+    from .job import Job
 
 __all__ = ["FormRecords"]
 
@@ -277,11 +287,153 @@ class FormRecords:
             batch_size=batch_size,
         )
 
+    def bulk_import(
+        self,
+        rows: Iterable[Mapping[str, Any]] | Any,
+        *,
+        parent: Record | str | None = None,
+        match_keys: bool = True,
+        timeout: float | None = None,
+        progress: Callable[[Job], None] | None = None,
+    ) -> Job:
+        """Import many records through the server's import pipeline.
+
+        Faster than :meth:`add_many` for large datasets: the rows are
+        uploaded as one file and imported by an ``importRecords`` job, as
+        the R package's ``importRecords()`` does. Rows are dicts or a
+        :class:`pandas.DataFrame`, like :meth:`add_many`.
+
+        Like R, only text, multi-line text, quantity, date, month,
+        single/multiple select and reference fields can be imported.
+
+        Args:
+            parent: Parent record of every row (subforms), unless a row has
+                a ``"_parent"`` value.
+            match_keys: For rows without ``"_id"``, find the existing record
+                with the same key field values and update it instead of
+                adding a new one (when every key field is imported).
+            timeout: Maximum seconds to wait for the import job.
+            progress: Called with the job while waiting.
+
+        Returns the completed job.
+        """
+        from .database import SubForm
+
+        rows = builtins.list(_rows(rows))
+        schema = self.schema()
+        subform = isinstance(self._form, SubForm)
+
+        columns: builtins.list[str] = []
+        for row in rows:
+            for key in row:
+                if key not in (ID_KEY, PARENT_KEY) and key not in columns:
+                    columns.append(key)
+        if not columns:
+            raise ValueError("Nothing to import: the rows have no fields")
+        fields: builtins.list[FormField] = []
+        for column in columns:
+            try:
+                form_field = schema.field(column)
+            except LookupError:
+                raise KeyError(f"{self._form!r} has no field {column!r}") from None
+            if not isinstance(form_field, _IMPORTABLE):
+                raise ValueError(
+                    f"{form_field!r} cannot be imported with bulk_import(); "
+                    "use add_many() instead"
+                )
+            fields.append(form_field)
+
+        encoded_rows = [
+            [
+                encode_value(f, None if is_missing(v := row.get(c)) else v)
+                for c, f in zip(columns, fields, strict=True)
+            ]
+            for row in rows
+        ]
+        record_ids: builtins.list[str | None] = [row.get(ID_KEY) for row in rows]
+        if match_keys:
+            self._match_keys(fields, encoded_rows, record_ids)
+
+        lines = [
+            "LINE DELIMITED JSON RECORDS",
+            str(len(rows)),
+            json.dumps([f.id for f in fields]),
+        ]
+        for row, record_id, values in zip(rows, record_ids, encoded_rows, strict=True):
+            prefix: builtins.list[Any] = [record_id]
+            if subform:
+                parent_id = self._parent_id(row.get(PARENT_KEY, parent))
+                prefix.append(parent_id)
+            lines.append(json.dumps(prefix + values))
+
+        client = self._form.database.client
+        import_id = client.jobs.stage("\n".join(lines), content_type="text/plain")
+        job: Job = client.jobs.run(
+            "importRecords",
+            {"formId": self._form.id, "importId": import_id},
+            timeout=timeout,
+            progress=progress,
+        )
+        return job
+
+    def _match_keys(
+        self,
+        fields: builtins.list[FormField],
+        encoded_rows: builtins.list[builtins.list[Any]],
+        record_ids: builtins.list[str | None],
+    ) -> None:
+        """Fill in the ids of rows whose key values match an existing record."""
+        from .fields import SerialNumberField
+
+        keys = [
+            f for f in self.schema().key_fields if not isinstance(f, SerialNumberField)
+        ]
+        if not keys or any(k not in fields for k in keys):
+            return
+        positions = [fields.index(k) for k in keys]
+
+        def normalize(form_field: FormField, value: Any) -> str:
+            return str(decode_value(form_field, value))
+
+        seen: dict[tuple[str, ...], int] = {}
+        for index, values in enumerate(encoded_rows):
+            key = tuple(normalize(fields[p], values[p]) for p in positions)
+            if key in seen:
+                raise ValueError(
+                    f"Rows {seen[key] + 1} and {index + 1} have the same key "
+                    f"values {key}"
+                )
+            seen[key] = index
+
+        result = self._form.database.client.queries.columns(
+            self._form.id,
+            {ID_KEY: "_id", **{f"k{i}": k.id for i, k in enumerate(keys)}},
+        )
+        existing = {
+            tuple(normalize(k, row[f"k{i}"]) for i, k in enumerate(keys)): row[ID_KEY]
+            for row in result
+        }
+        for key, index in seen.items():
+            if record_ids[index] is None and key in existing:
+                record_ids[index] = existing[key]
+
     def recover(self, record: Record | str) -> Record:
         """Restore a deleted record and return it."""
         record_id = _record_id(record)
         self._records.recover(self._form.id, record_id)
         return self.get(record_id)
+
+
+# Field types the server's import accepts (as in the R package).
+_IMPORTABLE = (
+    TextField,
+    MultilineField,
+    QuantityField,
+    DateField,
+    MonthField,
+    _SelectField,
+    ReferenceField,
+)
 
 
 def _rows(rows: Any) -> Iterable[Mapping[str, Any]]:

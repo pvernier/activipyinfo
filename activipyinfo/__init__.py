@@ -9,6 +9,8 @@ from .exceptions import (
     ConfigurationError,
     ConflictError,
     DeletedError,
+    JobFailedError,
+    JobTimeoutError,
     MultipleMatchesError,
     NoMatchError,
     NotFoundError,
@@ -19,7 +21,9 @@ from .exceptions import (
 )
 from .ids import cuid
 from .models import (
+    AUDIT_EVENT_TYPES,
     AttachmentField,
+    AuditEvent,
     BillingAccount,
     BillingAccountDatabase,
     BillingAccountUser,
@@ -40,6 +44,7 @@ from .models import (
     FortnightField,
     GeoPointField,
     Grant,
+    Job,
     MonthField,
     MultilineField,
     MultiReferenceField,
@@ -153,4 +158,9 @@ __all__ = [
     "Record",
     "RecordHistoryEntry",
     "Table",
+    "JobFailedError",
+    "JobTimeoutError",
+    "AUDIT_EVENT_TYPES",
+    "AuditEvent",
+    "Job",
 ]

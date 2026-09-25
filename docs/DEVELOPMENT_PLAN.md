@@ -337,6 +337,26 @@ Endpoints: `POST /query/columns` (formId, columns[{id, formula}], filter, sort, 
 5. `form.to_pandas()` as a one-line shortcut.
 
 ### Phase 6: Jobs and bulk operations
+
+> **Status: done** on branch `phase-6-jobs`.
+> - Payloads follow the R package: `POST /jobs` with
+>   `{type, locale, descriptor}`, polled every 2 seconds; job states are
+>   compared case-insensitively (R uses lower case, the reference upper).
+> - Staging (`POST /imports/stage`, then `PUT` to `uploadUrl`) uploads
+>   through ActivityInfo by default; `direct=True` uses the cloud storage
+>   URL, without our token.
+> - `form.records.bulk_import()` writes R's line-delimited JSON import file,
+>   limited to the field types R's import supports, and fills in record ids
+>   by matching key fields so existing records are updated.
+> - `table.export()` / `form.export()` (`exportForm`, reusing the table's
+>   columns, filter and sort), `db.export()` (`exportDatabaseForms`),
+>   `db.duplicate()`, `db.import_xlsform()` and `db.audit_log()` (R
+>   `queryAuditLog`, paging back in time).
+> - `tests/integration/test_jobs_live.py` covers import/update by key, form
+>   and folder exports, XLSForm import, the audit log and duplication.
+> - Deferred: `mergeRecords`, `duplicateScan`, `exportUsers`,
+>   `exportAttachments`, `convertSubformToForm` and `translate` jobs (all
+>   available through `client.jobs.run()` with a raw descriptor).
 Endpoints: `POST /jobs`, `GET /jobs/{id}`, the job file endpoint, and descriptors `importRecords`, `exportForm`, `exportDatabaseForms`, `importXlsForm`, `duplicateDatabase`, `exportAuditLog`, `exportUsers`, `mergeRecords`, `exportAttachments`.
 1. `client.jobs.start(type, descriptor)` returns a `Job`, with `job.wait(poll=2, timeout=...)`, `job.download(path)` and `job.result`. A failed job raises `JobFailedError` with the API error.
 2. `form.import_records(df_or_csv)` uses the staged import (`stageImport` then an `importRecords` job). **Find the staging endpoint first.** It isn't in the API index, but the R `stageImport` source shows the call. Fall back to `add_many` for small inputs.

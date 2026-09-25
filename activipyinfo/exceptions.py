@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     import requests
 
+    from .models.job import Job
+
 
 class ActivityInfoError(Exception):
     """Base class for every error raised by activipyinfo."""
@@ -26,6 +28,25 @@ class NoMatchError(ActivityInfoError, LookupError):
 
 class MultipleMatchesError(ActivityInfoError, LookupError):
     """Raised when a lookup that expects one result matches several."""
+
+
+class JobFailedError(ActivityInfoError):
+    """Raised when a server-side job fails.
+
+    Attributes:
+        job: The failed :class:`~activipyinfo.models.Job`, with its
+            ``error_code`` and ``error_message``.
+    """
+
+    def __init__(self, job: Job) -> None:
+        self.job = job
+        code = f" {job.error_code}" if job.error_code else ""
+        message = job.error_message or f"state {job.state}"
+        super().__init__(f"Job {job.id} ({job.type}) failed:{code} {message}")
+
+
+class JobTimeoutError(ActivityInfoError, TimeoutError):
+    """Raised when waiting for a job takes longer than the given timeout."""
 
 
 class RecordBatchError(ActivityInfoError):

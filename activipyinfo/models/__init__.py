@@ -5,6 +5,7 @@ from .account import (
     BillingDomain,
     UserAccount,
 )
+from .audit import AUDIT_EVENT_TYPES, AuditEvent
 from .changes import DatabaseChanges
 from .database import (
     Database,
@@ -47,6 +48,7 @@ from .fields import (
 )
 from .form_records import FormRecords
 from .form_schema import FormSchema
+from .job import Job
 from .permissions import (
     Grant,
     Operation,
@@ -62,7 +64,9 @@ from .table import Table
 from .user import DatabaseUser
 
 __all__ = [
+    "AUDIT_EVENT_TYPES",
     "AttachmentField",
+    "AuditEvent",
     "BillingAccount",
     "BillingAccountDatabase",
     "BillingAccountUser",
@@ -83,6 +87,7 @@ __all__ = [
     "FortnightField",
     "GeoPointField",
     "Grant",
+    "Job",
     "MonthField",
     "MultiReferenceField",
     "MultiSelectField",

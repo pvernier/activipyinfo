@@ -26,6 +26,7 @@ pandas = [
 [dependency-groups]
 dev = [
     "mypy>=1.15",
+    "openpyxl>=3.1",
     "pandas>=2.2",
     "pandas-stubs>=2.2",
     "pytest>=9.0.2",
