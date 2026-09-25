@@ -112,7 +112,7 @@ def test_summary_loads_tree_lazily(client, mocked, tree_data):
     assert db.owner.email == "owner@example.org"
     assert len(mocked.calls) == 2
 
-    db.resources  # cached
+    assert len(db.resources) == 9  # cached, no new request
     assert len(mocked.calls) == 2
 
 
@@ -374,7 +374,7 @@ def test_resources_compare_by_id(db):
 
 def test_unbound_objects_raise_configuration_error():
     with pytest.raises(ConfigurationError):
-        Database("db1", "Lebanon").resources
+        _ = Database("db1", "Lebanon").resources
 
     with pytest.raises(ConfigurationError):
         Folder("f1", "Folder", "FOLDER").rename("x")
