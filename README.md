@@ -224,6 +224,48 @@ households.relocate(other_db)  # with subforms and records
 Schemas keep any property the library does not model, so reading a schema
 and sending it back never loses information.
 
+## Records
+
+`form.records` reads and writes records. Values are dicts keyed by field
+code, id or label, with Python values, which are checked against the form's
+schema: select options by label, dates as `datetime.date`, references as a
+record or record id, points as `(latitude, longitude)`, and `None` to clear a
+field.
+
+```python
+provinces.records.add_many(
+    [
+        {"pcode": "LBN001", "name": "Mount Lebanon"},
+        {"pcode": "LBN002", "name": "Bekaa"},
+    ]
+)  # sent in batches of 200
+
+household = households.records.add(
+    head="Alice",
+    province=provinces.records.ref(pcode="LBN002"),  # id of the matching record
+    members=5,
+    status="Displaced",
+    visit=date(2024, 3, 1),
+)
+household["status"]  # "Displaced"
+household.to_dict()  # {"head": "Alice", "province": "...", ...}
+
+households.records.update(household, members=6, visit=None)
+households.records.find(head="Alice")  # the one matching record
+households.records.find_all(status="Displaced")  # matching record ids
+households.records.list(filter="members > 5")  # records, with all fields
+households.records.history(household)
+
+members.records.add({"name": "Rami"}, parent=household)  # subform record
+
+households.records.delete(household)
+households.records.recover(household)
+```
+
+`add_many`, `update_many` (rows with an `"_id"` key) and `delete_many` send
+changes in batches. If a batch fails, a `RecordBatchError` says which records
+were already saved (`error.submitted`).
+
 ## Development
 
 ```bash

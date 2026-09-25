@@ -271,6 +271,22 @@ Endpoints: `POST /databases/{id}/forms`, `GET` and `POST /form/{id}/schema`, sch
 5. Round-trip tests: fetch a real schema that uses every field type, save it as a fixture, and check that parsing it then serializing it gives back the same JSON.
 
 ### Phase 4: Records
+
+> **Status: done** on branch `phase-4-records`.
+> - Payloads follow the R package: record values keyed by field id (the
+>   library resolves codes and labels using the schema), select options sent
+>   by id, references by record id, points as `{latitude, longitude}`. A new
+>   record is fetched back after saving, like R's `addRecord()`.
+> - Updates leave out `parentRecordId`, so a subform record's parent is never
+>   reset by an update.
+> - `form.records.find()` / `ref()` / `find_all()` and `list()` use
+>   `/query/columns` in the R package's format (`rowSources`,
+>   `columns[{id, expression}]`, `window`). `client.queries` is the start of
+>   Phase 5.
+> - `tests/integration/test_records_live.py` checks the value formats, filters
+>   on text and select labels, subform records and batches of 200.
+> - Deferred: a `client.records.batch()` context manager queueing changes
+>   across forms (R `submitPending`).
 Endpoints: `POST /resources/update` (at most 200 changes), `GET /form/{id}/record/{rid}`, record history, recover a deleted record.
 1. `Record` model (`record_id`, `form_id`, `parent_record_id`, `last_edit_time`, `fields`).
 2. `form.records.get(id)`, `.exists(id)`, `.add(values, record_id=None, parent=None)`, `.update(record_id, values)`, `.delete(record_id)`, `.history(record_id)` and `.recover(record_id)`.
@@ -367,4 +383,3 @@ Still open:
 - The staging endpoint behind R `stageImport`.
 - Whether `/resources/update` accepts field **codes** for every field type (the documentation says "IDs or codes").
 - The exact response shape of `/query/columns`. Save it as a fixture.
-- How to give a subform record its `parentRecordId`.

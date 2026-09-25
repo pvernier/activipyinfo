@@ -14,6 +14,7 @@ from .exceptions import (
     NotFoundError,
     PermissionDeniedError,
     RateLimitError,
+    RecordBatchError,
     ServerError,
 )
 from .ids import cuid
@@ -34,6 +35,7 @@ from .models import (
     Folder,
     Form,
     FormField,
+    FormRecords,
     FormSchema,
     FortnightField,
     GeoPointField,
@@ -47,6 +49,9 @@ from .models import (
     OwnerRef,
     Permission,
     QuantityField,
+    QueryResult,
+    Record,
+    RecordHistoryEntry,
     ReferenceField,
     Report,
     Resource,
@@ -141,4 +146,9 @@ __all__ = [
     "UnknownField",
     "UserField",
     "WeekField",
+    "RecordBatchError",
+    "FormRecords",
+    "QueryResult",
+    "Record",
+    "RecordHistoryEntry",
 ]
