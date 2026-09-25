@@ -3,6 +3,8 @@ from datetime import date
 import pytest
 import responses
 
+from activipyinfo import ConfigurationError
+
 API = "https://www.activityinfo.org/resources"
 ACCOUNT = {"id": 7, "name": "NGO", "planName": "business", "status": "ACTIVE"}
 
@@ -39,6 +41,20 @@ def test_user_without_billing_account(client, mocked):
 
     with pytest.raises(ValueError, match="no billing account"):
         client.billing.get()
+
+
+def test_default_account_with_personal_api_token(client, mocked):
+    mocked.get(
+        f"{API}/accounts/status",
+        status=403,
+        json={
+            "code": "FORBIDDEN",
+            "message": "This request cannot be taken with an API token",
+        },
+    )
+
+    with pytest.raises(ConfigurationError, match="Pass account_id"):
+        client.billing.databases()
 
 
 def test_users(client, mocked):

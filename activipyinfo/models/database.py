@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Self, TypeVar, overload
 
-from ..exceptions import ConfigurationError, NoMatchError
+from ..exceptions import ConfigurationError, NoMatchError, NotFoundError
 from ..ids import cuid
 from ._common import one
 from .changes import DatabaseChanges
@@ -260,24 +260,45 @@ class Form(Resource):
     def add_subform(
         self, schema: FormSchema | str, fields: list[FormField] | None = None
     ) -> SubForm:
-        """Create a subform (repeating records) and link it from this form.
+        """Create a subform (repeating records) linked from this form.
 
-        A :class:`SubformField` pointing to the new subform is added to this
-        form's schema if the server did not add one.
+        The server requires the parent form to reference the subform first:
+        a :class:`SubformField` is added to this form's schema, then the
+        subform's schema is saved. If saving the subform fails, the new
+        field is removed from this form again.
         """
         subform_schema = _as_schema(schema, fields)
         subform_schema.database_id = self.database.id
         subform_schema.parent_form_id = self.id
-        self._forms.add(subform_schema)
 
         parent_schema = self.schema()
+        new_link: SubformField | None = None
         if not any(
             f.subform_id == subform_schema.id for f in parent_schema.subform_fields
         ):
-            parent_schema.add_field(
-                SubformField(subform_schema.label, subform_schema.id)
-            )
+            new_link = SubformField(subform_schema.label, subform_schema.id)
+            parent_schema.add_field(new_link)
             self.update_schema(parent_schema)
+
+        try:
+            try:
+                self._forms.update_schema(subform_schema)
+            except NotFoundError:
+                # The server did not create the subform from the new field.
+                self._forms.add(subform_schema)
+        except Exception:
+            if new_link is not None:
+                rollback = self.schema()
+                links = [
+                    f
+                    for f in rollback.subform_fields
+                    if f.subform_id == subform_schema.id
+                ]
+                for link in links:
+                    rollback.remove_field(link)
+                if links:
+                    self.update_schema(rollback)
+            raise
 
         self.database.refresh()
         subform = self.database.resource(subform_schema.id)

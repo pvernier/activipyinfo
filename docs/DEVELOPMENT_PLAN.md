@@ -241,9 +241,10 @@ Endpoints:
 > - Every class round-trips the API JSON. Properties it does not model, and
 >   field types it does not know (`UnknownField`), are kept and sent back
 >   unchanged. A fixture with every field type checks this.
-> - `form.add_subform()` links the subform from its parent (a
->   `SubformField`) only if the server has not already done so.
->   `tests/integration/test_forms_live.py` checks what the server does.
+> - `form.add_subform()` first adds a `SubformField` to the parent schema,
+>   then saves the subform's schema: the server refuses a subform that no
+>   parent field references (`INVALID_SCHEMA`). If saving the subform fails,
+>   the new field is removed again.
 > - Most write endpoints' responses are not documented, so the schema is
 >   read from the response when present and fetched again otherwise.
 > - Deferred: `FormSchema.from_data()`, which needs the pandas extra
@@ -328,11 +329,41 @@ Endpoints: `POST /jobs`, `GET /jobs/{id}`, the job file endpoint, and descriptor
 9. Phase 6: the job runner, import and export.
 
 ## 5. Open questions to settle against the live API
-- Field and form payloads: lower-case vs upper-case enum values (`single`/`SINGLE`), and whether subforms should be created as `FORM` or `SUB_FORM`.
-- Role grants and user roles: the R package and the API reference disagree on the payload shape (objects vs strings, `id` vs `roleId`). `tests/integration/test_users_roles_live.py` checks the R format.
+
+Settled by the first live run (2026-09-25):
+- `GET /accounts/status` (`client.me()`) refuses personal API tokens (HTTP 403,
+  "This request cannot be taken with an API token"). It needs an OAuth token.
+- Accounts without a billing account cannot create databases
+  (`NO_BILLING_ACCOUNT`), so write tests can run in a scratch folder of an
+  existing database (`ACTIVITYINFO_TEST_DATABASE`).
+- Listing databases, reading a database tree (resources, roles) and listing
+  users work as implemented.
+
+Settled by the second live run (2026-09-25):
+- Folders can be nested, renamed, moved and deleted through `resourceUpdates`.
+- Roles in the R package's format are accepted and kept as sent: permission
+  objects with filter formulas, optional grants, database permissions.
+- Forms are accepted with lower-case select values (`single`, `automatic`);
+  references, calculated fields and keys are kept. Adding and deleting a
+  field through the schema works.
+- A subform can only be created once its parent has a subform field that
+  references it ("First update the parent schema with a new subform field,
+  and then update the subform").
+
+Settled by the third live run (2026-09-25): all write tests pass.
+- Subforms are created by `add_subform()` (parent field first).
+  `duplicate()` copies a form's schema.
+- Still not visible from the tests: which of the two calls creates the
+  subform after its parent field (the subform's schema endpoint, or
+  `POST /databases/{id}/forms` as a fallback). Both paths are kept.
+- Personal API tokens could not read the billing account of the test
+  database (HTTP 403), so that smoke test is skipped for them.
+
+Still open:
+- User roles: the R format (`id`/`parameters`/`resources`) is not checked
+  live yet (needs `ACTIVITYINFO_TEST_EMAIL`).
 - Per-user grants (`POST …/users/{id}/grants`): are operations strings or permission objects?
 - How to rename a database or change its description (the web app does it, but the endpoint isn't documented).
-- Whether nested folders can be created through `resourceUpdates`.
 - The staging endpoint behind R `stageImport`.
 - Whether `/resources/update` accepts field **codes** for every field type (the documentation says "IDs or codes").
 - The exact response shape of `/query/columns`. Save it as a fixture.
