@@ -1,7 +1,10 @@
-"""Write tests against the live API. They create and delete a database.
+"""Live checks of folders. They run in a scratch folder (see conftest.py).
 
-Run with: ACTIVITYINFO_TOKEN=... ACTIVITYINFO_ALLOW_WRITES=1 \
-          uv run pytest -m integration
+PowerShell:
+    $env:ACTIVITYINFO_TOKEN = "..."
+    $env:ACTIVITYINFO_ALLOW_WRITES = "1"
+    $env:ACTIVITYINFO_TEST_DATABASE = "<database id>"
+    uv run pytest -m integration
 """
 
 import pytest
@@ -11,27 +14,22 @@ from activipyinfo import Folder, NoMatchError
 pytestmark = pytest.mark.integration
 
 
-def test_folder_lifecycle(scratch_database):
-    db = scratch_database
-
-    folder = db.add_folder("Admin boundaries")
-    assert isinstance(folder, Folder)
-    assert db.refresh().folder("Admin boundaries").id == folder.id
+def test_folder_lifecycle(sandbox):
+    db, root = sandbox.db, sandbox.folder
+    assert isinstance(root, Folder)
+    assert db.refresh().folder(root.id).label == root.label
 
     # Open question in the plan: can folders be nested through the API?
-    sub = folder.add_folder("Archive")
-    assert db.refresh().resource(sub.id).parent_id == folder.id
+    a = root.add_folder("A")
+    b = root.add_folder("B")
+    assert db.refresh().resource(a.id).parent_id == root.id
 
-    sub.rename("Old data")
-    assert db.refresh().resource(sub.id).label == "Old data"
+    a.rename("A renamed")
+    assert db.refresh().resource(a.id).label == "A renamed"
 
-    sub.move(db)
-    assert db.refresh().resource(sub.id).parent_id == db.id
+    a.move(b)
+    assert db.refresh().resource(a.id).parent_id == b.id
 
-    sub.delete()
+    a.delete()
     with pytest.raises(NoMatchError):
-        db.refresh().resource(sub.id)
-
-
-def test_billing_account(scratch_database):
-    assert scratch_database.billing_account().id == scratch_database.billing_account_id
+        db.refresh().resource(a.id)

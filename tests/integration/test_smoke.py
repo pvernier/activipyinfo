@@ -1,6 +1,8 @@
 """Read-only checks against the live API.
 
-Run with: ACTIVITYINFO_TOKEN=... uv run pytest -m integration
+PowerShell:
+    $env:ACTIVITYINFO_TOKEN = "..."
+    uv run pytest -m integration
 """
 
 import pytest
@@ -18,7 +20,11 @@ def test_list_databases(live_client):
 
 
 def test_me(live_client):
-    assert live_client.me().email
+    try:
+        me = live_client.me()
+    except PermissionDeniedError:
+        pytest.skip("GET /accounts/status only accepts OAuth tokens, not API tokens")
+    assert me.email
 
 
 def test_databases_list_and_get(live_client):
@@ -40,13 +46,19 @@ def test_invalid_token_is_rejected(live_client):
 
 
 def test_billing_account(live_client):
-    if live_client.me().billing_account_id is None:
-        pytest.skip("the user has no billing account")
+    summaries = live_client.databases.list()
+    if not summaries:
+        pytest.skip("the account has no database")
+    db = summaries[0]
 
-    account = live_client.billing.get()
+    try:
+        via_database = db.billing_account()
+        account = live_client.billing.get(db.billing_account_id)
+    except PermissionDeniedError:
+        pytest.skip("no permission to read the billing account of this database")
 
+    assert account.id == via_database.id == db.billing_account_id
     assert account.name
-    assert isinstance(live_client.billing.databases(), list)
 
 
 def test_database_roles_and_users(live_client):

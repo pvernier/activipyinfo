@@ -1,4 +1,4 @@
-"""Live checks of forms and schemas. They create and delete a scratch database."""
+"""Live checks of forms and schemas. They run in a scratch folder (see conftest.py)."""
 
 import pytest
 
@@ -19,9 +19,8 @@ from activipyinfo import (
 pytestmark = pytest.mark.integration
 
 
-def test_form_lifecycle(scratch_database):
-    db = scratch_database
-    folder = db.add_folder("Admin boundaries")
+def test_form_lifecycle(sandbox):
+    folder = sandbox.folder
 
     provinces = folder.add_form(
         "Provinces",
@@ -30,7 +29,7 @@ def test_form_lifecycle(scratch_database):
             TextField("Name", code="name", required=True),
         ],
     )
-    households = db.add_form(
+    households = folder.add_form(
         FormSchema(
             "Households",
             [
@@ -46,11 +45,12 @@ def test_form_lifecycle(scratch_database):
     )
     assert provinces.parent.id == folder.id
 
-    # What the server kept of what we sent.
+    # What the server kept of what we sent (lower-case select cardinality...).
     schema = households.schema()
     assert schema["province"].form_id == provinces.id
     assert schema["head"].key is True
     assert schema["members"].units == "people"
+    assert type(schema["needs"]) is MultiSelectField
     assert [o.label for o in schema["status"].options] == ["Resident", "Displaced"]
     assert schema["large"].formula == "members > 5"
 
@@ -72,5 +72,8 @@ def test_form_lifecycle(scratch_database):
     assert len(links) == 1
 
     copy = provinces.duplicate()
-    assert copy.id != provinces.id
-    assert [f.code for f in copy.schema()] == ["pcode", "name"]
+    try:
+        assert copy.id != provinces.id
+        assert [f.code for f in copy.schema()] == ["pcode", "name"]
+    finally:
+        copy.delete()  # the copy may not be created in the scratch folder

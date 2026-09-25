@@ -328,6 +328,17 @@ Endpoints: `POST /jobs`, `GET /jobs/{id}`, the job file endpoint, and descriptor
 9. Phase 6: the job runner, import and export.
 
 ## 5. Open questions to settle against the live API
+
+Settled by the first live run (2026-09-25):
+- `GET /accounts/status` (`client.me()`) refuses personal API tokens (HTTP 403,
+  "This request cannot be taken with an API token"). It needs an OAuth token.
+- Accounts without a billing account cannot create databases
+  (`NO_BILLING_ACCOUNT`), so write tests can run in a scratch folder of an
+  existing database (`ACTIVITYINFO_TEST_DATABASE`).
+- Listing databases, reading a database tree (resources, roles) and listing
+  users work as implemented.
+
+Still open:
 - Field and form payloads: lower-case vs upper-case enum values (`single`/`SINGLE`), and whether subforms should be created as `FORM` or `SUB_FORM`.
 - Role grants and user roles: the R package and the API reference disagree on the payload shape (objects vs strings, `id` vs `roleId`). `tests/integration/test_users_roles_live.py` checks the R format.
 - Per-user grants (`POST …/users/{id}/grants`): are operations strings or permission objects?

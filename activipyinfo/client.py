@@ -146,7 +146,11 @@ class Client:
         return BillingService(self)
 
     def me(self) -> UserAccount:
-        """Return the account of the user who owns the API token."""
+        """Return the account of the user who owns the token.
+
+        Only works with an OAuth access token: ActivityInfo refuses this
+        request for personal API tokens (``PermissionDeniedError``).
+        """
         from .models.account import UserAccount
 
         return UserAccount.from_api(self.get("accounts/status")["userAccount"])

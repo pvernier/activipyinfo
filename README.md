@@ -34,6 +34,9 @@ unavailable requests are retried automatically.
 
 ## Your account
 
+With an OAuth access token (ActivityInfo refuses this request for personal
+API tokens):
+
 ```python
 me = client.me()
 print(me.name, me.email, me.billing_account_id)
@@ -147,11 +150,15 @@ client.users.list("ck8oykh8m5")  # same methods, by database id
 ## Billing account (read-only)
 
 ```python
-client.billing.get()  # defaults to your own account
-client.billing.users(owners_only=False)
-client.billing.databases()  # usage counts per database
-client.billing.domains()
+account_id = db.billing_account_id
+client.billing.get(account_id)
+client.billing.users(account_id, owners_only=False)
+client.billing.databases(account_id)  # usage counts per database
+client.billing.domains(account_id)
 ```
+
+With an OAuth token, `account_id` can be left out to use your own billing
+account.
 
 ## Forms and fields
 
@@ -220,10 +227,22 @@ and sending it back never loses information.
 ## Development
 
 ```bash
-uv sync                                  # install the package and dev tools
-uv run pytest                            # unit tests (HTTP is mocked)
-ACTIVITYINFO_TOKEN=... uv run pytest -m integration   # read-only live API checks
-ACTIVITYINFO_TOKEN=... ACTIVITYINFO_ALLOW_WRITES=1 uv run pytest -m integration  # also creates/deletes a scratch database
-# ACTIVITYINFO_TEST_EMAIL=you@example.org also tests inviting a user (sends an email)
+uv sync         # install the package and dev tools
+uv run pytest   # unit tests (HTTP is mocked)
 uv run ruff check . && uv run ruff format --check . && uv run mypy
 ```
+
+Tests against the live API are opt-in and configured with environment
+variables (PowerShell syntax shown; in bash, use `export NAME=value`):
+
+```powershell
+$env:ACTIVITYINFO_TOKEN = "..."           # read-only checks
+$env:ACTIVITYINFO_ALLOW_WRITES = "1"      # also tests that change data...
+$env:ACTIVITYINFO_TEST_DATABASE = "..."   # ...in a scratch folder of this database
+$env:ACTIVITYINFO_TEST_EMAIL = "..."      # also invite a user (sends an email)
+uv run pytest -m integration
+```
+
+Write tests create a scratch folder (deleted afterwards) in the database
+given by `ACTIVITYINFO_TEST_DATABASE`. Without it, they create a scratch
+database, which only works for accounts allowed to create databases.

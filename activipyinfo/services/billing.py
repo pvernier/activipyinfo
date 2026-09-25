@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from ..exceptions import ConfigurationError, PermissionDeniedError
 from ..models.account import (
     BillingAccount,
     BillingAccountDatabase,
@@ -16,7 +17,9 @@ if TYPE_CHECKING:
 class BillingService:
     """Read-only billing account endpoints, available as ``client.billing``.
 
-    ``account_id`` defaults to the billing account of the token's user.
+    ``account_id`` defaults to the billing account of the token's user,
+    which can only be looked up with an OAuth token: with a personal API
+    token, pass ``account_id`` (e.g. ``db.billing_account_id``).
     """
 
     def __init__(self, client: Client) -> None:
@@ -24,7 +27,13 @@ class BillingService:
 
     def _path(self, account_id: int | None, suffix: str = "") -> str:
         if account_id is None:
-            account_id = self._client.me().billing_account_id
+            try:
+                account_id = self._client.me().billing_account_id
+            except PermissionDeniedError as exc:
+                raise ConfigurationError(
+                    "Pass account_id: the current user's billing account cannot "
+                    "be looked up with a personal API token."
+                ) from exc
             if account_id is None:
                 raise ValueError("The current user has no billing account.")
         return f"billingAccounts/{account_id}{suffix}"
