@@ -32,46 +32,77 @@ API errors raise subclasses of `activipyinfo.APIError` (`AuthenticationError`,
 the error code returned by ActivityInfo. Rate-limited and temporarily
 unavailable requests are retried automatically.
 
-## Usage
+## Your account
 
-The object API below is being redesigned (see
-[docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)). `Manager` is a `Client`
-with a few legacy helpers.
+```python
+me = client.me()
+print(me.name, me.email, me.billing_account_id)
+```
+
+## Databases
+
+```python
+for db in client.databases.list():
+    print(db.id, db.label)
+
+db = client.databases.get("ck8oykh8m5")        # by id, with its full tree
+db = client.databases.find("Lebanon response")  # by exact label
+
+new_db = client.databases.create("Lebanon response", description="2026 plan")
+new_db.delete()                                 # only the owner can delete
+
+db.billing_account().plan_name
+```
+
+## Folders and the resource tree
+
+A database's folders, forms, subforms and reports are loaded the first time
+you need them (`db.refresh()` reloads them).
+
+```python
+print(db.tree())
+# Lebanon response (ck8oykh8m5)
+# ├── Admin boundaries [folder c1a2...]
+# │   ├── Admin1 [form c3b4...]
+# │   └── Admin2 [form c5d6...]
+# └── Registration [form c7e8...]
+
+db.folders, db.forms, db.children                # lists of Folder / Form
+admin = db.folder("Admin boundaries")            # by label or id
+form = db.form("Admin1")                         # raises MultipleMatchesError
+form = db.find("Admin1", parent=admin)           #   if the label is not unique
+
+folder = db.add_folder("Lebanon")                # at the database root
+archive = folder.add_folder("Archive")           # nested folder
+archive.rename("Old data")
+archive.move(db)                                 # back to the root
+archive.delete()
+```
+
+Several changes can be sent in one request with `DatabaseChanges`:
+
+```python
+from activipyinfo import DatabaseChanges
+
+changes = DatabaseChanges()
+changes.delete_resource(db.form("Old form"))
+changes.add_language("fr")
+db.apply(changes)
+```
+
+## Forms and records (legacy API)
+
+Creating forms and records still uses the original object API until the new
+one lands (phases 3 and 4 of [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md)).
+`Manager` is deprecated and will be removed at that point.
 
 ```python
 from activipyinfo import Field, Manager, Record
 
-ai = Manager("XXXX")  # or Manager() to read ACTIVITYINFO_TOKEN
-```
-
-## List databases
-
-```python
-dbs = ai.get_dbs()
-
-for db in dbs:
-    print(db.label)
-```
-
-## Identify a database
-
-```python
-MY_DB = "mydbuid"
-
-my_db = ai.get_db(MY_DB)
-print(my_db.label)
-
-resources = my_db.get_resources()
-print(resources)
-```
-
-## Create a folder
-
-```python
+ai = Manager()  # reads ACTIVITYINFO_TOKEN
+my_db = ai.get_db("mydbuid")
 my_folder = my_db.create_folder("Lebanon")
 ```
-
-At this stage the folder is empty, we need to add a form.
 
 ## Create a form
 
@@ -194,5 +225,6 @@ Now the reference of "LBN001" has also been updated in the admin2 form to "LBN00
 uv sync                                  # install the package and dev tools
 uv run pytest                            # unit tests (HTTP is mocked)
 ACTIVITYINFO_TOKEN=... uv run pytest -m integration   # read-only live API checks
+ACTIVITYINFO_TOKEN=... ACTIVITYINFO_ALLOW_WRITES=1 uv run pytest -m integration  # also creates/deletes a scratch database
 uv run ruff check . && uv run ruff format --check . && uv run mypy
 ```

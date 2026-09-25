@@ -20,6 +20,14 @@ class ActivityInfoConnectionError(ActivityInfoError):
     """Raised when the server cannot be reached or the request times out."""
 
 
+class NoMatchError(ActivityInfoError, LookupError):
+    """Raised when a lookup by label (or other criteria) matches nothing."""
+
+
+class MultipleMatchesError(ActivityInfoError, LookupError):
+    """Raised when a lookup that expects one result matches several."""
+
+
 class APIError(ActivityInfoError):
     """Raised when the API answers with an HTTP error status.
 

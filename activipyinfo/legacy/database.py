@@ -7,7 +7,7 @@ from .folder import Folder
 from .form import Form
 
 if TYPE_CHECKING:
-    from .client import Client
+    from ..client import Client
 
 
 class Database(ClientBound):

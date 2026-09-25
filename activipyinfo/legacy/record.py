@@ -1,4 +1,4 @@
-from .ids import cuid
+from ..ids import cuid
 
 
 class Record:

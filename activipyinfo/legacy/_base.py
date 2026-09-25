@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .exceptions import ConfigurationError
+from ..exceptions import ConfigurationError
 
 if TYPE_CHECKING:
-    from .client import Client
+    from ..client import Client
 
 
 class ClientBound:

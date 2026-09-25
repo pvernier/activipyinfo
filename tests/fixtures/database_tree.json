@@ -1,0 +1,30 @@
+{
+  "databaseId": "db1",
+  "userId": "u1",
+  "version": "12",
+  "label": "Lebanon response",
+  "description": "Tracking the response",
+  "ownerRef": {"id": "432201", "name": "Owner", "email": "owner@example.org"},
+  "language": "en",
+  "originalLanguage": "en",
+  "languages": ["en", "ar"],
+  "suspended": false,
+  "role": {"roleId": "admin", "roleParameters": {}, "roleResources": ["db1"]},
+  "roles": [],
+  "securityCategories": [],
+  "resources": [
+    {"id": "fadmin", "parentId": "db1", "label": "Admin boundaries", "type": "FOLDER", "visibility": "PRIVATE"},
+    {"id": "farchive", "parentId": "fadmin", "label": "Archive", "type": "FOLDER", "visibility": "PRIVATE"},
+    {"id": "fma1", "parentId": "fadmin", "label": "Admin1", "type": "FORM", "visibility": "PRIVATE"},
+    {"id": "fma2", "parentId": "fadmin", "label": "Admin2", "type": "FORM", "visibility": "REFERENCE"},
+    {"id": "sfhh", "parentId": "fma2", "label": "Households", "type": "SUB_FORM", "visibility": "PRIVATE"},
+    {"id": "fmreg", "parentId": "db1", "label": "Registration", "type": "FORM", "visibility": "PRIVATE", "icon": "form"},
+    {"id": "fother", "parentId": "db1", "label": "Other", "type": "FOLDER", "visibility": "PRIVATE"},
+    {"id": "fmdup", "parentId": "fother", "label": "Admin1", "type": "FORM", "visibility": "PRIVATE"},
+    {"id": "rpdash", "parentId": "db1", "label": "Dashboard", "type": "REPORT", "visibility": "PRIVATE"}
+  ],
+  "locks": [],
+  "grants": [],
+  "billingAccountId": 1025232,
+  "billingPlan": "business"
+}

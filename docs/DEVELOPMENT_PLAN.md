@@ -155,6 +155,17 @@ Each phase ends with unit tests (mocked HTTP using `responses` and JSON fixtures
 7. CI with GitHub Actions: ruff, mypy and pytest on Python 3.12 and 3.13.
 
 ### Phase 1: Account and databases
+
+> **Status: done** on branch `phase-1-databases`.
+> - The documented API has no way to rename a database or change its
+>   description (`updateDatabase` only covers resources, locks, roles and
+>   languages), so `update(label=..., description=...)` is **not**
+>   implemented. See the open questions.
+> - The original object API moved to `activipyinfo.legacy`, and `Manager` now
+>   emits a `DeprecationWarning`.
+> - Nested folders are sent with `parentId` set to a folder. The live test
+>   `tests/integration/test_databases_live.py` checks that the server accepts
+>   this; it needs `ACTIVITYINFO_ALLOW_WRITES=1`.
 Endpoints: `GET /accounts/status`, `GET /databases`, `GET /databases/{id}` (tree), `POST /databases`, `POST /databases/{id}` (update), `DELETE /databases/{id}`, `GET /databases/{id}/billingAccount`.
 1. `client.me()` returns a `UserAccount`.
 2. Models: `Database` (id, label, description, owner, language, billing plan, role, `resources`, `roles`, `locks`) and `Resource` (id, type, parentId, label, visibility, icon).
@@ -263,6 +274,7 @@ Endpoints: `POST /jobs`, `GET /jobs/{id}`, the job file endpoint, and descriptor
 9. Phase 6: the job runner, import and export.
 
 ## 5. Open questions to settle against the live API
+- How to rename a database or change its description (the web app does it, but the endpoint isn't documented).
 - Exact list of `Operation` values for role permissions (from the `updateDatabase` schema).
 - Whether nested folders can be created through `resourceUpdates`.
 - The staging endpoint behind R `stageImport`.
