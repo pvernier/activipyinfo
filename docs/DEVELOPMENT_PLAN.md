@@ -352,8 +352,11 @@ Endpoints: `POST /query/columns` (formId, columns[{id, formula}], filter, sort, 
 >   columns, filter and sort), `db.export()` (`exportDatabaseForms`),
 >   `db.duplicate()`, `db.import_xlsform()` and `db.audit_log()` (R
 >   `queryAuditLog`, paging back in time).
-> - `tests/integration/test_jobs_live.py` covers import/update by key, form
->   and folder exports, XLSForm import, the audit log and duplication.
+> - Verified live (2026-09-25, `tests/integration/test_jobs_live.py`):
+>   staging through ActivityInfo, bulk import and update by key, form export
+>   (CSV) and folder export (XLSX), XLSForm import, the audit log, and
+>   duplicating a database (allowed for an account that cannot create
+>   databases).
 > - Deferred: `mergeRecords`, `duplicateScan`, `exportUsers`,
 >   `exportAttachments`, `convertSubformToForm` and `translate` jobs (all
 >   available through `client.jobs.run()` with a raw descriptor).
