@@ -179,7 +179,9 @@ Each phase ends with unit tests (mocked HTTP using `responses` and JSON fixtures
 >   languages), so `update(label=..., description=...)` is **not**
 >   implemented. See the open questions.
 > - The original object API moved to `activipyinfo.legacy`, and `Manager` now
->   emits a `DeprecationWarning`.
+>   emits a `DeprecationWarning`. After Phase 3, the legacy API (`Manager`,
+>   `Field`, `Record` and the old `Database`/`Folder`/`Form`) was removed
+>   entirely. Records come back with the new API in Phase 4.
 > - Nested folders are sent with `parentId` set to a folder. The live test
 >   `tests/integration/test_databases_live.py` checks that the server accepts
 >   this; it needs `ACTIVITYINFO_ALLOW_WRITES=1`.

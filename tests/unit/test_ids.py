@@ -3,8 +3,6 @@ import string
 import pytest
 
 from activipyinfo.ids import cuid, is_cuid
-from activipyinfo.legacy.field import Field
-from activipyinfo.legacy.record import Record
 
 ALPHANUMERIC = string.ascii_lowercase + string.digits
 
@@ -47,23 +45,3 @@ def test_cuids_are_unique():
 )
 def test_is_cuid(value, expected):
     assert is_cuid(value) is expected
-
-
-def test_field_uses_provided_id():
-    field = Field({"code": "name"}, id="abc123")
-
-    assert field.id == "abc123"
-    assert field.data == {"code": "name"}
-
-
-def test_field_generates_cuid_by_default():
-    assert is_cuid(Field({"code": "name"}).id)
-
-
-def test_record_sets_fields_and_values():
-    field = Field({"code": "name"}, id="field_id")
-    record = Record([field], ["Alice"])
-
-    assert is_cuid(record.id)
-    assert record.fields == [field]
-    assert record.values == ["Alice"]
