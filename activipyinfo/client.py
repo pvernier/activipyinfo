@@ -20,7 +20,9 @@ from .exceptions import (
 
 if TYPE_CHECKING:
     from .models.account import UserAccount
+    from .services.billing import BillingService
     from .services.databases import DatabasesService
+    from .services.users import UsersService
 
 __all__ = ["Client", "DEFAULT_BASE_URL", "TOKEN_ENV_VAR", "BASE_URL_ENV_VAR"]
 
@@ -120,6 +122,20 @@ class Client:
         from .services.databases import DatabasesService
 
         return DatabasesService(self)
+
+    @cached_property
+    def users(self) -> UsersService:
+        """Manage the users of any database (see also ``db.users``)."""
+        from .services.users import UsersService
+
+        return UsersService(self)
+
+    @cached_property
+    def billing(self) -> BillingService:
+        """Read billing accounts: details, users, databases and domains."""
+        from .services.billing import BillingService
+
+        return BillingService(self)
 
     def me(self) -> UserAccount:
         """Return the account of the user who owns the API token."""

@@ -1,20 +1,26 @@
 from __future__ import annotations
 
+import builtins
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, Self, TypeVar
+from typing import TYPE_CHECKING, Any, Self, TypeVar, overload
 
-from ..exceptions import ConfigurationError
+from ..exceptions import ConfigurationError, NoMatchError
 from ..ids import cuid
 from ._common import one
 from .changes import DatabaseChanges
+from .permissions import Grant, Role, RoleAssignment
 
 if TYPE_CHECKING:
     from ..client import Client
     from .account import BillingAccount
+    from .user import DatabaseUser
 
 __all__ = [
     "Database",
+    "DatabaseRoles",
+    "DatabaseUsers",
     "Folder",
     "Form",
     "OwnerRef",
@@ -234,14 +240,15 @@ class Database:
     language: str | None = None
     original_language: str | None = None
     languages: list[str] = field(default_factory=list)
-    # Typed in phase 2 (users, roles and permissions).
-    role: dict[str, Any] | None = field(default=None, repr=False)
-    roles: list[dict[str, Any]] = field(default_factory=list, repr=False)
+    # The token user's own role and grants in this database.
+    my_role: RoleAssignment | None = field(default=None, repr=False)
+    my_grants: list[Grant] = field(default_factory=list, repr=False)
+    # Typed in phase 7.
     locks: list[dict[str, Any]] = field(default_factory=list, repr=False)
-    grants: list[dict[str, Any]] = field(default_factory=list, repr=False)
     raw: dict[str, Any] = field(default_factory=dict, repr=False)
     _client: Client | None = field(default=None, init=False, repr=False)
     _resources: list[Resource] | None = field(default=None, init=False, repr=False)
+    _roles: list[Role] = field(default_factory=list, init=False, repr=False)
 
     @classmethod
     def from_api(cls, data: dict[str, Any], client: Client | None = None) -> Database:
@@ -266,10 +273,11 @@ class Database:
         self.language = data.get("language")
         self.original_language = data.get("originalLanguage")
         self.languages = list(data.get("languages") or [])
-        self.role = data.get("role")
-        self.roles = list(data.get("roles") or [])
+        role = data.get("role")
+        self.my_role = RoleAssignment.from_api(role) if role else None
+        self.my_grants = [Grant.from_api(g) for g in data.get("grants") or []]
+        self._roles = [Role.from_api(r) for r in data.get("roles") or []]
         self.locks = list(data.get("locks") or [])
-        self.grants = list(data.get("grants") or [])
         self.raw = data
         if "resources" in data:
             self._resources = [
@@ -306,13 +314,28 @@ class Database:
 
     # -- Resources -------------------------------------------------------
 
+    def _ensure_tree(self) -> None:
+        if self._resources is None:
+            self.refresh()
+
     @property
     def resources(self) -> list[Resource]:
         """All folders, forms, subforms and reports (loads the tree if needed)."""
-        if self._resources is None:
-            self.refresh()
+        self._ensure_tree()
         assert self._resources is not None
         return self._resources
+
+    # -- Roles and users -------------------------------------------------
+
+    @property
+    def roles(self) -> DatabaseRoles:
+        """The roles defined in this database; also adds, updates and deletes them."""
+        return DatabaseRoles(self)
+
+    @property
+    def users(self) -> DatabaseUsers:
+        """Lists, invites and manages the users of this database."""
+        return DatabaseUsers(self)
 
     @property
     def folders(self) -> list[Folder]:
@@ -463,3 +486,180 @@ class Database:
     def billing_account(self) -> BillingAccount:
         """Return the billing account that owns this database."""
         return self.client.databases.billing_account(self.id)
+
+
+# ----------------------------------------------------------------------
+# Roles and users of a database
+# ----------------------------------------------------------------------
+
+
+class DatabaseRoles(Sequence[Role]):
+    """The roles of a database, as returned by ``db.roles``.
+
+    Behaves like a read-only list of :class:`Role` (loaded with the database
+    tree) and adds :meth:`get`, :meth:`add`, :meth:`update` and :meth:`delete`.
+    """
+
+    def __init__(self, database: Database) -> None:
+        self._db = database
+
+    def _list(self) -> list[Role]:
+        self._db._ensure_tree()
+        return self._db._roles
+
+    @overload
+    def __getitem__(self, index: int) -> Role: ...
+    @overload
+    def __getitem__(self, index: slice) -> Sequence[Role]: ...
+    def __getitem__(self, index: int | slice) -> Role | Sequence[Role]:
+        return self._list()[index]
+
+    def __len__(self) -> int:
+        return len(self._list())
+
+    def __iter__(self) -> Iterator[Role]:
+        return iter(self._list())
+
+    def __repr__(self) -> str:
+        return f"DatabaseRoles({[r.id for r in self._list()]!r})"
+
+    def get(self, id_or_label: str) -> Role:
+        """Return a role by id, or by (unique) label."""
+        roles = self._list()
+        for role in roles:
+            if role.id == id_or_label:
+                return role
+        return one(
+            (r for r in roles if r.label == id_or_label),
+            f"role {id_or_label!r} in {self._db!r}",
+        )
+
+    def add(self, role: Role) -> Role:
+        """Create a role. Raises ValueError if a role with the same id exists."""
+        if any(r.id == role.id for r in self._list()):
+            raise ValueError(
+                f"Role {role.id!r} already exists in {self._db!r}; use update()."
+            )
+        return self.update(role)
+
+    def update(self, role: Role) -> Role:
+        """Create or replace a role (matched by id)."""
+        changes = DatabaseChanges()
+        changes.update_role(role)
+        self._db.apply(changes)
+        return self.get(role.id)
+
+    def delete(self, role: Role | str) -> None:
+        """Delete a role by object, id or label."""
+        role_id = role.id if isinstance(role, Role) else self.get(role).id
+        changes = DatabaseChanges()
+        changes.delete_role(role_id)
+        self._db.apply(changes)
+
+
+class DatabaseUsers:
+    """The users of a database, as returned by ``db.users``.
+
+    Users can be referred to by :class:`DatabaseUser`, user id or email.
+    Roles can be referred to by :class:`Role`, id or label.
+    """
+
+    def __init__(self, database: Database) -> None:
+        self._db = database
+
+    def __repr__(self) -> str:
+        return f"DatabaseUsers({self._db!r})"
+
+    def _user_id(self, user: DatabaseUser | str) -> str:
+        if not isinstance(user, str):
+            return user.user_id
+        if "@" not in user:
+            return user
+        email = user.lower()
+        return one(
+            (u for u in self.list() if u.email.lower() == email),
+            f"user with email {user!r} in {self._db!r}",
+        ).user_id
+
+    def _role(self, role: Role | str) -> Role | str:
+        if isinstance(role, Role):
+            return role
+        try:
+            return self._db.roles.get(role)
+        except NoMatchError:
+            return role  # e.g. a role id not listed in the tree
+
+    def list(self) -> builtins.list[DatabaseUser]:
+        """List the users of the database."""
+        return self._db.client.users.list(self._db.id)
+
+    def get(self, user: str) -> DatabaseUser:
+        """Fetch a user, with their grants, by id or email."""
+        return self._db.client.users.get(self._db.id, self._user_id(user))
+
+    def on_resource(self, resource: Resource | str) -> builtins.list[DatabaseUser]:
+        """List the users with access to a folder or form."""
+        resource_id = resource if isinstance(resource, str) else resource.id
+        return self._db.client.users.on_resource(self._db.id, resource_id)
+
+    def add(
+        self,
+        email: str,
+        name: str,
+        role: Role | str,
+        *,
+        resources: builtins.list[Any] | None = None,
+        parameters: dict[str, str] | None = None,
+        locale: str = "en",
+    ) -> DatabaseUser:
+        """Invite a user. See :meth:`activipyinfo.services.UsersService.add`."""
+        return self._db.client.users.add(
+            self._db.id,
+            email,
+            name,
+            self._role(role),
+            resources=resources,
+            parameters=parameters,
+            locale=locale,
+        )
+
+    def set_role(
+        self,
+        user: DatabaseUser | str,
+        role: Role | str,
+        *,
+        resources: builtins.list[Any] | None = None,
+        parameters: dict[str, str] | None = None,
+    ) -> DatabaseUser:
+        """Replace a user's role assignment."""
+        return self._db.client.users.set_role(
+            self._db.id,
+            self._user_id(user),
+            self._role(role),
+            resources=resources,
+            parameters=parameters,
+        )
+
+    def update_grants(
+        self,
+        user: DatabaseUser | str,
+        *,
+        add: builtins.list[Grant] | None = None,
+        remove: builtins.list[Any] | None = None,
+    ) -> DatabaseUser:
+        """Grant or revoke permissions on specific resources, outside the role."""
+        return self._db.client.users.update_grants(
+            self._db.id, self._user_id(user), add=add, remove=remove
+        )
+
+    def remove(self, user: DatabaseUser | str) -> None:
+        """Remove a user from the database."""
+        self._db.client.users.remove(self._db.id, self._user_id(user))
+
+    def unlock(self, user: DatabaseUser | str) -> None:
+        """Unlock a user's account in the database."""
+        self._db.client.users.unlock(self._db.id, self._user_id(user))
+
+    def restore(self, user_id: str) -> DatabaseUser:
+        """Restore a removed user (by id) with their former role and grants."""
+        return self._db.client.users.restore(self._db.id, user_id)

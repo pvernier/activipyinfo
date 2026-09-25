@@ -125,11 +125,9 @@ def test_get_parses_tree(db):
     assert db.version == "12"
     assert db.language == "en"
     assert db.billing_plan == "business"
-    assert db.role == {
-        "roleId": "admin",
-        "roleParameters": {},
-        "roleResources": ["db1"],
-    }
+    assert db.my_role.role_id == "admin"
+    assert db.my_role.resources == ["db1"]
+    assert db.my_grants == []
     assert db.raw["userId"] == "u1"
 
 

@@ -175,6 +175,25 @@ Endpoints: `GET /accounts/status`, `GET /databases`, `GET /databases/{id}` (tree
 6. Navigating the tree: `db.folders`, `db.forms`, `db.find(label=...)`, `db.tree()` (printable), and lookup by label with a clear error when the label is ambiguous.
 
 ### Phase 2: Users, roles and permissions
+
+> **Status: done** on branch `phase-2-users-roles`.
+> - Payloads follow the R package, which is used against the live server,
+>   wherever it disagrees with the API reference:
+>   - A role's grant operations are sent as objects
+>     (`{operation, filter, securityCategories}`, so formulas can restrict
+>     records), with `optional` and `grantBased: true`.
+>   - User role assignments are sent as `{id, parameters, resources}`.
+>   - Parsing accepts both forms.
+> - The per-user grants endpoint isn't used by R, so it follows the
+>   documented shape (operations as strings). Record-level formulas can't
+>   be sent through it.
+> - `Role` ids are derived from labels when omitted (`"Data entry"` becomes
+>   `"dataentry"`), and are validated like in R.
+> - The tree's `role` and `grants` fields (the token user's own access) are
+>   now `db.my_role` and `db.my_grants`. `db.roles` and `db.users` are
+>   managers.
+> - Deferred: `db.users.to_pandas()` (Phase 5, with the pandas extra) and
+>   `db.users.sync()`.
 Endpoints:
 - `GET` and `POST /databases/{id}/users`
 - `DELETE /databases/{id}/users/{userId}`
@@ -274,8 +293,9 @@ Endpoints: `POST /jobs`, `GET /jobs/{id}`, the job file endpoint, and descriptor
 9. Phase 6: the job runner, import and export.
 
 ## 5. Open questions to settle against the live API
+- Role grants and user roles: the R package and the API reference disagree on the payload shape (objects vs strings, `id` vs `roleId`). `tests/integration/test_users_roles_live.py` checks the R format.
+- Per-user grants (`POST …/users/{id}/grants`): are operations strings or permission objects?
 - How to rename a database or change its description (the web app does it, but the endpoint isn't documented).
-- Exact list of `Operation` values for role permissions (from the `updateDatabase` schema).
 - Whether nested folders can be created through `resourceUpdates`.
 - The staging endpoint behind R `stageImport`.
 - Whether `/resources/update` accepts field **codes** for every field type (the documentation says "IDs or codes").

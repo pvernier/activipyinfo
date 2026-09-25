@@ -1,7 +1,15 @@
-from .account import BillingAccount, UserAccount
+from .account import (
+    BillingAccount,
+    BillingAccountDatabase,
+    BillingAccountUser,
+    BillingDomain,
+    UserAccount,
+)
 from .changes import DatabaseChanges
 from .database import (
     Database,
+    DatabaseRoles,
+    DatabaseUsers,
     Folder,
     Form,
     OwnerRef,
@@ -11,18 +19,43 @@ from .database import (
     SubForm,
     Visibility,
 )
+from .permissions import (
+    Grant,
+    Operation,
+    Permission,
+    Role,
+    RoleAssignment,
+    RoleParameter,
+    database_permissions,
+    resource_permissions,
+)
+from .user import DatabaseUser
 
 __all__ = [
     "BillingAccount",
+    "BillingAccountDatabase",
+    "BillingAccountUser",
+    "BillingDomain",
     "Database",
     "DatabaseChanges",
+    "DatabaseRoles",
+    "DatabaseUser",
+    "DatabaseUsers",
     "Folder",
     "Form",
+    "Grant",
+    "Operation",
     "OwnerRef",
+    "Permission",
     "Report",
     "Resource",
     "ResourceType",
+    "Role",
+    "RoleAssignment",
+    "RoleParameter",
     "SubForm",
     "UserAccount",
     "Visibility",
+    "database_permissions",
+    "resource_permissions",
 ]
